@@ -5,6 +5,7 @@ pub mod components;
 pub mod doc;
 pub mod render;
 pub mod style;
+pub mod units;
 
 use anyhow::Result;
 

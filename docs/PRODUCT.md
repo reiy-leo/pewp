@@ -65,6 +65,15 @@ pewp 把一份 JSON 文档渲染成 docx、pdf、html。JSON 里不写排版细�
 
 完整例子见 `examples/showcase.json`。
 
+## 各格式的差别
+
+同一份 JSON 在三种格式里尽量长得一样。docx 有这些不同：
+
+- 图片只收 png、jpeg、gif、webp。SVG 和远程图片放不进去，改成显示 alt 文字，并给警告。
+- `padding` 只在有 `border` 时生效，用作边框和文字的间距。
+- Slide 变成一个二级标题加正文，后面分页。
+- 纸张、方向、页边距按 `meta.page` 设置；表格铺满版心，`widths` 按比例分。
+
 ## 自定义组件
 
 一个组件一个文件，放在 `catalog/` 或用 `--catalog` 指定。例子：

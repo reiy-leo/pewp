@@ -1,5 +1,6 @@
 //! 各格式的渲染器。
 
+pub mod docx;
 pub mod html;
 
 use std::path::{Path, PathBuf};
@@ -52,7 +53,7 @@ pub struct Output {
 pub fn render(doc: &Doc, tree: &Node, format: Format, opts: &Options) -> Result<Output> {
     match format {
         Format::Html => Ok(html::render(doc, tree, opts)),
-        Format::Docx => bail!("docx 渲染器还没写"),
+        Format::Docx => docx::render(doc, tree, opts),
         Format::Pdf => bail!("pdf 渲染器还没写"),
     }
 }

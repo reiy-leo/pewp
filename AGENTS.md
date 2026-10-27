@@ -31,7 +31,7 @@ docs/           产品说明和设计文档
 .agents/        给 AI 用的 skills、rules、prompts、memory
 ```
 
-以后再加 `src/render/{docx,pdf}.rs`、`src/mcp.rs`、`src/catalog.rs`。
+以后再加 `src/render/pdf.rs`、`src/mcp.rs`、`src/catalog.rs`。
 
 ## 命令
 
