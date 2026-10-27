@@ -18,22 +18,28 @@ pewp：一份 JSON，按注册好的组件渲染成 docx、pdf、html（第二�
 ## 目录
 
 ```
-src/main.rs     命令行入口
-src/doc.rs      文档模型和校验
+src/main.rs         命令行入口
+src/lib.rs          库入口，render_str 给命令行和 MCP 共用
+src/doc.rs          文档模型、校验、建元素树
+src/components.rs   内置组件的 props 和 schema
+src/style.rs        样式模型和解析
+src/render/         各格式渲染器（现在有 html）
+tests/              集成测试
 catalog/        自定义组件定义（YAML/JSON）
 examples/       示例文档
 docs/           产品说明和设计文档
 .agents/        给 AI 用的 skills、rules、prompts、memory
 ```
 
-以后按格式拆模块：`src/render/{docx,pdf,html}.rs`，`src/mcp.rs`，`src/catalog.rs`。
+以后再加 `src/render/{docx,pdf}.rs`、`src/mcp.rs`、`src/catalog.rs`。
 
 ## 命令
 
 ```sh
 cargo build
 cargo run -- check examples/hello.json
-cargo run -- render examples/hello.json -o out.docx
+cargo run -- render examples/showcase.json -o /tmp/showcase.html
+cargo run -- catalog --json
 cargo fmt && cargo clippy -- -D warnings
 cargo test
 ```

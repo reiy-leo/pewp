@@ -1,0 +1,48 @@
+{
+  "version": "0.1",
+  "meta": { "title": "pewp 组件一览", "author": "Rei", "lang": "zh-CN", "page": { "size": "A4", "margin": "18mm" } },
+  "styles": {
+    "muted": { "color": "#666666", "fontSize": 10 },
+    "center": { "align": "center" },
+    "note": { "background": "#F5F7FA", "border": "#D0D7DE", "padding": 8 }
+  },
+  "root": "doc",
+  "elements": {
+    "doc": { "type": "Document", "children": ["logo", "title", "lead", "h-list", "steps", "h-table", "table", "tip", "break", "cover"] },
+    "logo": { "type": "Image", "props": { "src": "logo.svg", "alt": "pewp", "width": 90, "caption": "相对路径按文档所在目录找" } },
+    "title": { "type": "Heading", "props": { "level": 1, "text": "组件一览" }, "style": "center" },
+    "lead": {
+      "type": "Text",
+      "props": { "text": [
+        { "text": "Text 可以写纯文本，也可以写 runs：" },
+        { "text": "加粗", "bold": true }, { "text": "、" },
+        { "text": "斜体", "italic": true }, { "text": "、" },
+        { "text": "红字", "color": "#CF222E" }, { "text": "、" },
+        { "text": "代码", "code": true }, { "text": "、" },
+        { "text": "链接", "href": "https://github.com/reiy-leo/pewp" }, { "text": "。" }
+      ] },
+      "style": ["muted", { "fontSize": 11 }]
+    },
+    "h-list": { "type": "Heading", "props": { "level": 2, "text": "列表" } },
+    "steps": { "type": "List", "props": { "ordered": true, "items": ["写 JSON", "pewp check", [{ "text": "pewp render", "code": true }, { "text": " 出文件" }]] } },
+    "h-table": { "type": "Heading", "props": { "level": 2, "text": "表格" } },
+    "table": {
+      "type": "Table",
+      "props": {
+        "columns": ["格式", "版本", "说明"],
+        "widths": [1, 1, 3],
+        "rows": [
+          ["html", "v0.1", "自带 CSS，能直接打印"],
+          ["docx", "v0.1", "docx-rs"],
+          ["pdf", "v0.1", "Typst"],
+          ["xlsx", "v0.2", "rust_xlsxwriter"],
+          ["pptx", "v0.2", "ppt-rs"]
+        ]
+      }
+    },
+    "tip": { "type": "Text", "props": { "text": "style 可以写样式名、样式名数组，或者直接写样式对象。" }, "style": "note" },
+    "break": { "type": "PageBreak" },
+    "cover": { "type": "Slide", "props": { "title": "Slide" }, "children": ["cover-text"] },
+    "cover-text": { "type": "Text", "props": { "text": "html 和 pdf 里一张占一页，第二版出真正的 pptx。" } }
+  }
+}

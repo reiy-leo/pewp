@@ -16,7 +16,8 @@ pewp 把一份 JSON 文档渲染成 docx、pdf、html。JSON 里不写排版细�
 - 命令行：
   - `pewp render doc.json -o out.docx`：按输出文件的扩展名选格式。
   - `pewp check doc.json`：只校验，不出文件。
-  - `pewp catalog`：列出能用的组件。
+  - `pewp catalog`：列出能用的组件，加 `--json` 输出 schema。
+  - 输入写 `-` 从标准输入读；输出写 `-` 时配 `--format` 写到标准输出。
   - `pewp mcp`：以 MCP server 方式运行（stdio）。
 - MCP 工具：`render`（JSON 进，文件出）、`check`、`list_components`（带每个组件的 props 说明，方便 AI 写对）。
 - 自定义组件：YAML 或 JSON 定义文件，用内置组件拼。
@@ -51,12 +52,18 @@ pewp 把一份 JSON 文档渲染成 docx、pdf、html。JSON 里不写排版细�
 }
 ```
 
-- `type`：组件名，必须在组件目录里。
-- `props`：组件自己的参数，由组件的 schema 校验。
-- `style`：可以写 `styles` 里的名字，也可以直接写一个样式对象。
-- `children`：子元素 id 列表，只有容器组件（Document、Slide）用。
+- `type`：组件名，必须在组件目录里。`pewp catalog --json` 能看到每个组件 props 的 JSON Schema。
+- `props`：组件自己的参数，多写、少写、写错类型都会报错。
+- `style`：三种写法都行：样式名 `"muted"`；样式名数组 `["muted", "center"]`，后面的覆盖前面的；样式对象 `{ "fontSize": 11 }`。数组里也能混写对象。
+- `children`：子元素 id 列表，只有容器组件（Document、Slide）能用。每个元素只能被引用一次。
 
-样式只收各格式都能表达的那部分：字体、字号、颜色、粗细、斜体、对齐、行距、段前段后、背景色、边框。某个格式表达不了的样式，渲染时忽略并给出警告，不报错。
+文字类的 props（Heading 的 `text`、Text 的 `text`、List 的每一项、表格的每一格）都能写成纯字符串，也能写成 runs 数组，每段单独设置 `bold`、`italic`、`underline`、`code`、`color`、`href`。
+
+`meta.page` 管纸张：`size`（默认 A4）、`landscape`、`margin`（默认 20mm）。
+
+样式字段：`fontFamily`、`fontSize`（pt）、`color`、`bold`、`italic`、`underline`、`align`（left/center/right/justify）、`lineHeight`（倍数）、`spaceBefore`、`spaceAfter`、`background`、`border`（边框颜色，1pt 实线）、`padding`。颜色写 `#RRGGBB`。某个格式表达不了的样式，渲染时忽略并给出警告，不报错。
+
+完整例子见 `examples/showcase.json`。
 
 ## 自定义组件
 
