@@ -1,0 +1,9 @@
+/target/
+/dist/
+*.docx
+*.pdf
+*.html
+!examples/**/*.html
+!docs/**/*.html
+.DS_Store
+.env

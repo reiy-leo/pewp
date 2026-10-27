@@ -1,0 +1,21 @@
+[package]
+name = "pewp"
+version = "0.0.0"
+edition = "2024"
+description = "One JSON document, rendered through a registered component catalog to docx, pdf and html."
+license = "MIT"
+repository = "https://github.com/reiy-leo/pewp"
+readme = "README.md"
+keywords = ["docx", "pdf", "json", "mcp", "document"]
+categories = ["command-line-utilities", "text-processing"]
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4.6", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

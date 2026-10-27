@@ -1,0 +1,21 @@
+{
+  "version": "0.1",
+  "meta": { "title": "pewp 示例", "lang": "zh-CN", "page": { "size": "A4", "margin": "20mm" } },
+  "styles": {
+    "muted": { "color": "#666666", "fontSize": 10 }
+  },
+  "root": "doc",
+  "elements": {
+    "doc": { "type": "Document", "children": ["title", "intro", "items", "price"] },
+    "title": { "type": "Heading", "props": { "level": 1, "text": "季度报告" } },
+    "intro": { "type": "Text", "props": { "text": "一份 JSON，出三种格式。" }, "style": "muted" },
+    "items": { "type": "List", "props": { "ordered": false, "items": ["docx", "pdf", "html"] } },
+    "price": {
+      "type": "Table",
+      "props": {
+        "columns": ["格式", "状态"],
+        "rows": [["docx", "第一版"], ["pdf", "第一版"], ["html", "第一版"], ["xlsx", "第二版"], ["pptx", "第二版"]]
+      }
+    }
+  }
+}
