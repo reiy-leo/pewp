@@ -64,13 +64,22 @@ pub fn render(doc: &Doc, tree: &Node, opts: &Options) -> Output {
         r.out,
         "<title>{}</title>\n<style>\n@page {{ size: {w}pt {h}pt; margin: {mt}pt {mr}pt {mb}pt {}pt; }}\n\
          body {{ font-family: {DEFAULT_FONTS}; color: #1a1a1a; max-width: {}pt; margin: 2rem auto; padding: 0 1.5rem; }}\n\
-         {cols}{}</style>\n</head>\n<body>\n",
+         {cols}{}</style>\n{}</head>\n<body>\n",
         esc(title),
         ml + gutter,
         w - ml - mr - gutter,
-        BASE_CSS
+        BASE_CSS,
+        if opts.paged { PAGED_CSS } else { "" }
     );
     r.node(tree, None);
+    if opts.paged {
+        // 放在 body 末尾：Paged.js 加载完就把上面的内容按 @page 切成一页页
+        r.out.push_str("<script>\n");
+        r.out.push_str(PAGED_JS);
+        r.out.push_str("\n</script>\n<script>\n");
+        r.out.push_str(PAGED_REPEAT_THEAD);
+        r.out.push_str("\n</script>\n");
+    }
     r.out.push_str("</body>\n</html>\n");
     Output {
         bytes: r.out.into_bytes(),
@@ -94,6 +103,44 @@ code { font: inherit; }
 margin: 1.5rem 0; overflow: hidden; break-inside: avoid; break-after: page; position: relative; }
 @media screen { .pewp-pagebreak { border-top: 1px dashed #bbb; margin: 2rem 0; } }
 @media print { body { max-width: none; margin: 0; padding: 0; } .pewp-slide { border: none; } }
+";
+
+/// Paged.js 0.4.3（MIT，许可证见 assets/pagedjs-LICENSE.md），`--paged` 时内嵌进 HTML。
+const PAGED_JS: &str = include_str!("../../assets/paged.polyfill.min.js");
+
+/// Paged.js 自己不会在续页重复 thead：表格被切开后，给续上的那半张表补一份表头。
+/// repeatHeader: false 时表头不放进 thead，这里自然不会补。
+const PAGED_REPEAT_THEAD: &str = "\
+class PewpRepeatThead extends Paged.Handler {
+  // 续页上放第一行之前补表头，排版时就把表头的高度算进去，不会挤掉最后一行
+  renderNode(clone, node) {
+    if (clone.nodeType !== 1 || clone.tagName !== 'TR') return;
+    const t = clone.closest('table[data-split-from]');
+    if (!t || t.querySelector(':scope > thead')) return;
+    const th = node.closest('table')?.querySelector(':scope > thead');
+    if (!th) return;
+    const copy = th.cloneNode(true);
+    for (const e of [copy, ...copy.querySelectorAll('[data-ref]')]) e.removeAttribute('data-ref');
+    t.insertBefore(copy, t.querySelector(':scope > tbody') || t.firstChild);
+  }
+}
+Paged.registerHandlers(PewpRepeatThead);";
+
+/// 按页显示时的屏幕样式：灰底、白纸、阴影；正文不再限宽，屏幕上的分页虚线也不要了。
+/// 带 data-pagedjs-ignore，Paged.js 不去改写它。
+const PAGED_CSS: &str = "<style data-pagedjs-ignore>
+@media screen {
+  body { max-width: none; margin: 0; padding: 0; background: #e8eaed; }
+  .pagedjs_pages { display: flex; flex-direction: column; align-items: center; padding: 24px 0; }
+  .pagedjs_page { background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.25); margin-bottom: 24px; }
+  .pewp-pagebreak { border-top: none; margin: 0; }
+}
+@media print { body { background: none; } }
+</style>
+<style>
+/* Paged.js 不认空 div 上的 break-after，改成让下一个元素从新页开始 */
+.pewp-pagebreak + * { break-before: page; }
+</style>
 ";
 
 struct Html<'a> {

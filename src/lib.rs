@@ -58,6 +58,7 @@ pub fn render_with(
         format,
         &render::Options {
             base_dir: base_dir.map(Into::into),
+            ..Default::default()
         },
     )
 }

@@ -9,6 +9,7 @@ JSON 里只引用注册好的组件（标题、正文、列表、表格、图片
 ```sh
 pewp render report.json -o report.docx
 pewp render report.json -o report.pdf
+pewp render report.json -o report.html --paged   # 屏幕上按页显示
 pewp check report.json
 pewp render report.json -o report.html --catalog my-components/ --style-sets themes/ --style-set formal
 pewp mcp

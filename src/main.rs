@@ -50,6 +50,9 @@ enum Cmd {
         /// 指定格式（html、docx、pdf），不写就看输出文件的扩展名
         #[arg(short, long)]
         format: Option<String>,
+        /// 只对 HTML 有用：内嵌 Paged.js，打开就按页显示（分页、表头重复不用打印也看得到）
+        #[arg(long)]
+        paged: bool,
         #[command(flatten)]
         defs: Defs,
     },
@@ -96,6 +99,7 @@ fn main() -> Result<()> {
             input,
             output,
             format,
+            paged,
             defs,
         } => {
             let fmt = match &format {
@@ -103,12 +107,15 @@ fn main() -> Result<()> {
                 None if output == Path::new("-") => bail!("输出到标准输出时要用 --format 指定格式"),
                 None => render::Format::from_path(&output)?,
             };
+            if paged && !matches!(fmt, render::Format::Html) {
+                eprintln!("警告：--paged 只对 HTML 有用，已忽略");
+            }
             let text = read_input(&input)?;
             let base_dir = doc_dir(&input);
             let env = defs.env(&input)?;
             let (d, tree) = pewp::prepare(&text, &env)
                 .with_context(|| format!("{} 不是合法的 pewp 文档", input.display()))?;
-            let out = render::render(&d, &tree, fmt, &render::Options { base_dir })?;
+            let out = render::render(&d, &tree, fmt, &render::Options { base_dir, paged })?;
             for w in &out.warnings {
                 eprintln!("警告：{w}");
             }

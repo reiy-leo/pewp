@@ -44,6 +44,9 @@ impl Format {
 pub struct Options {
     /// 文档所在目录，相对路径的图片按它找。
     pub base_dir: Option<PathBuf>,
+    /// 只对 HTML 有用：内嵌 Paged.js，在屏幕上按页显示（像 Google Docs 那样），
+    /// 分页、表头重复不用打印也能看到。
+    pub paged: bool,
 }
 
 /// 渲染结果：文件内容加警告。

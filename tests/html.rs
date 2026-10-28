@@ -92,3 +92,20 @@ fn showcase_example_renders() {
     assert!(s.contains("font-size:11pt"));
     assert!(s.contains("src=\"data:image/svg+xml;base64,"));
 }
+
+#[test]
+fn paged_mode_embeds_pagedjs() {
+    let json = include_str!("../examples/pages.json");
+    let (d, tree) = pewp::prepare(json, &pewp::Env::default()).unwrap();
+    let opts = pewp::render::Options {
+        paged: true,
+        ..Default::default()
+    };
+    let out = pewp::render::render(&d, &tree, pewp::render::Format::Html, &opts).unwrap();
+    let s = String::from_utf8(out.bytes).unwrap();
+    assert!(s.contains("Paged.js v0.4.3"));
+    assert!(s.contains(".pagedjs_page"));
+    // 默认不带
+    let plain = pewp::render_str(json, pewp::render::Format::Html, None).unwrap();
+    assert!(!String::from_utf8(plain.bytes).unwrap().contains("Paged.js"));
+}
