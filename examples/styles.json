@@ -33,7 +33,7 @@
         { "text": "选择样式集", "items": ["report：报告", "slides：幻灯片"] },
         "渲染出文件"
       ] },
-      "style": { "listStyleType": "cjk-decimal", "listMarkerFormat": "%1、", "listMarkerAlign": "right" },
+      "style": { "listStyleType": "cjk-decimal", "listMarkerFormat": "%1、", "listMarkerAlign": "right", "listIndent": "2.5em" },
       "parts": { "level2": { "listStyleType": "decimal", "listMarkerFormat": "%1.%2", "listMarkerColor": "#1A73E8" } }
     },
     "h-table": { "type": "Heading", "props": { "level": 2, "text": "表格部位" } },

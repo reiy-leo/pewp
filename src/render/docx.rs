@@ -277,6 +277,9 @@ impl Ctx<'_> {
                 self.warn
                     .unsupported(FORMAT, "listMarkerGap（长度，按制表符处理）", &n.id);
             }
+            if common::legal(&ty) && l.level > 1 {
+                level = level.is_lgl();
+            }
             abs = abs.add_level(level);
         }
         self.numberings.push((abs, Numbering::new(id, id)));
@@ -371,9 +374,17 @@ impl Ctx<'_> {
                 if let Some(bg) = &part.background {
                     cell = cell.shading(shading(bg));
                 }
-                let b = common::cell_edges(n, &p.look, &g, r, c);
+                // 两格之间的线只写一次：上下之间写在上面一格的下边，左右之间写在左边一格的右边。
+                // 两边都写的话 Word 会画两条（双线尤其明显）。
+                let mut b = common::cell_edges(n, &p.look, &g, r, c);
+                if r + 1 < g.rows {
+                    b[2] = common::cell_edges(n, &p.look, &g, r + 1, c)[0].clone();
+                }
+                if c + 1 < g.cols {
+                    b[1] = common::cell_edges(n, &p.look, &g, r, c + 1)[3].clone();
+                }
                 let mut borders = TableCellBorders::with_empty();
-                for (pos, b) in [
+                for (i, (pos, b)) in [
                     TableCellBorderPosition::Top,
                     TableCellBorderPosition::Right,
                     TableCellBorderPosition::Bottom,
@@ -381,8 +392,12 @@ impl Ctx<'_> {
                 ]
                 .into_iter()
                 .zip(b.iter())
+                .enumerate()
                 {
-                    borders = borders.set(cell_border(pos, b.as_ref()));
+                    let shared = (i == 0 && r > 0) || (i == 3 && c > 0);
+                    if !shared {
+                        borders = borders.set(cell_border(pos, b.as_ref()));
+                    }
                 }
                 cell = cell.set_borders(borders);
                 if let Some(v) = part.vertical_align {

@@ -158,7 +158,7 @@ Word 的列表定义在 numbering.xml：`w:abstractNum` 下每一级一个 `w:lv
 | 字段 | 值 | Word w:lvl | PPT a:pPr | HTML | PDF |
 |---|---|---|---|---|---|
 | `listStyleType` | 无序：`disc` `circle` `square` `dash` `none`，或任意字符如 `"▸"`；有序：`decimal` `decimal-leading-zero` `lower-alpha` `upper-alpha` `lower-roman` `upper-roman` `cjk-decimal`（一、二、三） `cjk-ideographic`（甲、乙、丙） `circled-decimal`（①②③） | w:numFmt（bullet、decimal、decimalZero、lowerLetter、upperLetter、lowerRoman、upperRoman、chineseCounting、ideographTraditional、decimalEnclosedCircle） + w:lvlText | a:buChar / a:buAutoNum type（arabicPeriod、alphaLcParenR、romanUcPeriod、circleNumDbPlain、ea1ChsPeriod …） | list-style-type | list marker / enum numbering |
-| `listMarkerFormat` | 编号的模板，`%1` 是本级编号：`"%1."` `"(%1)"` `"第%1条"`；多级 `"%1.%2"` | w:lvlText | 只能从 buAutoNum 的固定几种里选，选不到就退成 `%1.` | ::marker content / counters() | enum numbering 函数 |
+| `listMarkerFormat` | 编号的模板，`%1` 是本级编号：`"%1."` `"(%1)"` `"第%1条"`；多级 `"%1.%2"`；本级是 `decimal` 时上几级也写成阿拉伯数字（上级「一、」，本级出「2.1」） | w:lvlText（+ w:isLgl） | 只能从 buAutoNum 的固定几种里选，选不到就退成 `%1.` | ::marker content / counters() | enum numbering 函数 |
 | `listMarkerImage` | 图片路径，当项目符号 | w:lvlPicBulletId | a:buBlip | list-style-image | marker 里放 image |
 | `listMarkerColor` | 颜色 | w:lvl 的 w:rPr color | a:buClr | ::marker color | marker 用 text fill |
 | `listMarkerFont` | 字体名（Wingdings 这类符号字体） | w:lvl 的 w:rFonts | a:buFont | ::marker font-family | — |

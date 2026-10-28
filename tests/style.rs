@@ -170,7 +170,10 @@ fn nested_list_markers() {
     let s = html(LIST);
     assert!(s.contains(">一、</span>"));
     assert!(s.contains(">三、</span>"));
-    assert!(s.contains(">二.2</span>"));
+    assert!(
+        s.contains(">2.2</span>"),
+        "本级是 decimal，上级编号也写成阿拉伯数字"
+    );
     assert!(s.contains("color:#CF222E"));
     all_formats(LIST);
 }

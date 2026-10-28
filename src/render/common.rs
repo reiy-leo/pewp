@@ -99,7 +99,7 @@ fn walk<'a>(
         counters[level - 1] += 1;
         let marker = if let Some(b) = ty.bullet().filter(|_| !ty.ordered()) {
             match &style.list_marker_format {
-                Some(f) => fill_format(f, counters, types),
+                Some(f) => fill_format(f, counters, types, false),
                 None => b,
             }
         } else {
@@ -107,7 +107,7 @@ fn walk<'a>(
                 .list_marker_format
                 .clone()
                 .unwrap_or_else(|| format!("%{level}."));
-            fill_format(&f, counters, types)
+            fill_format(&f, counters, types, legal(&ty))
         };
         out.push(ListLine {
             level,
@@ -132,13 +132,27 @@ fn walk<'a>(
     }
 }
 
-/// `%1.%2` 里的 %k 换成第 k 级的编号。
-fn fill_format(f: &str, counters: &[u32], types: &[ListStyleType]) -> String {
+/// 这一级用阿拉伯数字时，`%1.%2` 里上几级的编号也写成阿拉伯数字（Word 叫 isLgl），
+/// 上一级是「一、」，这一级出来是「2.1」而不是「二.1」。
+pub fn legal(ty: &ListStyleType) -> bool {
+    matches!(
+        ty,
+        ListStyleType::Decimal | ListStyleType::DecimalLeadingZero
+    )
+}
+
+/// `%1.%2` 里的 %k 换成第 k 级的编号。`legal` 为真时上几级一律用这一级的数字写法。
+fn fill_format(f: &str, counters: &[u32], types: &[ListStyleType], legal: bool) -> String {
     let mut out = f.to_string();
+    let own = types.last();
     for k in (1..=counters.len()).rev() {
         let pat = format!("%{k}");
         if out.contains(&pat) {
-            out = out.replace(&pat, &types[k - 1].number(counters[k - 1]));
+            let ty = match own {
+                Some(t) if legal => t,
+                _ => &types[k - 1],
+            };
+            out = out.replace(&pat, &ty.number(counters[k - 1]));
         }
     }
     out
