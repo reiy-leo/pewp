@@ -1,0 +1,25 @@
+{
+  "name": "Callout",
+  "description": "带标题的提示框，子元素放在标题下面",
+  "container": true,
+  "props": {
+    "title": { "type": "inline", "required": true, "description": "提示框标题" },
+    "tone": { "type": "string", "default": "#1a73e8", "description": "标题颜色" }
+  },
+  "template": {
+    "root": "box",
+    "elements": {
+      "box": { "type": "Document", "children": ["head", "$children"] },
+      "head": {
+        "type": "Text",
+        "props": { "text": "{{title}}" },
+        "style": {
+          "bold": true,
+          "color": "{{tone}}",
+          "background": "#F5F7FA",
+          "padding": 6
+        }
+      }
+    }
+  }
+}

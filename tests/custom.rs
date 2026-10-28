@@ -79,9 +79,8 @@ fn detects_recursion() {
 }
 
 #[test]
-fn yaml_definition_parses() {
-    let def =
-        pewp::custom::parse_def(include_str!("../examples/catalog/callout.yaml"), "yaml").unwrap();
+fn definition_file_parses() {
+    let def = pewp::custom::parse_def(include_str!("../examples/catalog/callout.json")).unwrap();
     assert_eq!(def.name, "Callout");
     assert!(def.container);
     def.validate().unwrap();

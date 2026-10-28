@@ -1,4 +1,4 @@
-//! 自定义组件：用 YAML/JSON 定义文件把内置组件组合起来。
+//! 自定义组件：用 JSON 定义文件把内置组件组合起来。
 //!
 //! 渲染前先把自定义组件展开成内置组件，渲染器只认内置组件。
 //!
@@ -245,13 +245,13 @@ impl Catalog {
         Ok(())
     }
 
-    /// 读一个文件或目录（目录里的 .yaml、.yml、.json，不进子目录）。
+    /// 读一个文件或目录（目录里的 .json，不进子目录）。
     pub fn load_path(&mut self, path: &Path) -> Result<()> {
         if path.is_dir() {
             let mut files: Vec<PathBuf> = std::fs::read_dir(path)
                 .with_context(|| format!("读不了目录 {}", path.display()))?
                 .filter_map(|e| e.ok().map(|e| e.path()))
-                .filter(|p| p.is_file() && ext(p).is_some())
+                .filter(|p| p.is_file() && is_json(p))
                 .collect();
             files.sort();
             for f in files {
@@ -266,8 +266,8 @@ impl Catalog {
     fn load_file(&mut self, path: &Path) -> Result<()> {
         let text =
             std::fs::read_to_string(path).with_context(|| format!("读不了 {}", path.display()))?;
-        let def = parse_def(&text, ext(path).unwrap_or("yaml"))
-            .with_context(|| format!("{} 不是合法的组件定义", path.display()))?;
+        let def =
+            parse_def(&text).with_context(|| format!("{} 不是合法的组件定义", path.display()))?;
         self.add(def)
             .with_context(|| format!("{} 里的组件定义有问题", path.display()))
     }
@@ -352,20 +352,15 @@ impl Catalog {
     }
 }
 
-/// 解析一份组件定义。`format` 是 yaml、yml 或 json。
-pub fn parse_def(text: &str, format: &str) -> Result<Def> {
-    Ok(match format {
-        "json" => serde_json::from_str(text)?,
-        _ => serde_saphyr::from_str(text)?,
-    })
+/// 解析一份组件定义（JSON）。
+pub fn parse_def(text: &str) -> Result<Def> {
+    Ok(serde_json::from_str(text)?)
 }
 
-fn ext(p: &Path) -> Option<&'static str> {
-    match p.extension()?.to_str()?.to_ascii_lowercase().as_str() {
-        "yaml" | "yml" => Some("yaml"),
-        "json" => Some("json"),
-        _ => None,
-    }
+fn is_json(p: &Path) -> bool {
+    p.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("json"))
 }
 
 /// 找出值里所有 `{{name}}` 的 name。

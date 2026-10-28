@@ -20,7 +20,7 @@ pewp 把一份 JSON 文档渲染成 docx、pdf、html。JSON 里不写排版细�
   - 输入写 `-` 从标准输入读；输出写 `-` 时配 `--format` 写到标准输出。
   - `pewp mcp`：以 MCP server 方式运行（stdio）。
 - MCP 工具：`render`（JSON 进，文件出）、`check`、`list_components`（带每个组件的 props 说明，方便 AI 写对）。
-- 自定义组件：YAML 或 JSON 定义文件，用内置组件拼。
+- 自定义组件：JSON 定义文件，用内置组件拼。
 
 ## 第二版
 
@@ -91,21 +91,33 @@ pdf 用 Typst 排版，有这些不同：
 - `--catalog` 指定的文件或目录，可以写多次。`render`、`check`、`catalog` 三个命令都认。
 - 文档 JSON 里的 `components` 数组，适合 AI 通过 MCP 一次传完。
 
-一个文件一个组件，YAML 或 JSON 都行：
+一个文件一个组件，用 JSON 写：
 
-```yaml
-name: Callout                # 大写字母开头，不能和内置组件重名
-description: 带标题的提示框
-container: true              # 能放子元素；模板里要写一次 $children
-props:
-  title: { type: inline, required: true }
-  tone:  { type: string, default: "#1a73e8" }
-template:
-  root: box
-  elements:
-    box:  { type: Document, children: [head, $children] }
-    head: { type: Text, props: { text: "{{title}}" }, style: { bold: true, color: "{{tone}}" } }
+```json
+{
+  "name": "Callout",
+  "description": "带标题的提示框",
+  "container": true,
+  "props": {
+    "title": { "type": "inline", "required": true },
+    "tone": { "type": "string", "default": "#1a73e8" }
+  },
+  "template": {
+    "root": "box",
+    "elements": {
+      "box": { "type": "Document", "children": ["head", "$children"] },
+      "head": {
+        "type": "Text",
+        "props": { "text": "{{title}}" },
+        "style": { "bold": true, "color": "{{tone}}" }
+      }
+    }
+  }
+}
 ```
+
+- `name`：大写字母开头，不能和内置组件重名
+- `container`：能放子元素；模板里要写一次 $children
 
 规则：
 
@@ -125,7 +137,6 @@ template:
 | 用途 | crate | 当时最新版 |
 | --- | --- | --- |
 | docx | docx-rs | 0.4.22 |
-| YAML | serde-saphyr | 2.0 |
 | pdf | typst（当库用） | 0.15.1 |
 | xlsx（第二版） | rust_xlsxwriter | 0.101.0 |
 | pptx（第二版） | ppt-rs | 0.2.37 |
@@ -135,7 +146,7 @@ template:
 
 - PDF 走 Typst：先把文档转成 Typst 源码，再编译成 PDF。中文排版好，不用装 LibreOffice。字体要打包进二进制，或者读系统字体。
 - HTML 自己拼字符串，不引模板引擎。
-- YAML 解析：`serde_yaml` 已经停更，改用 serde-saphyr。
+- 只支持 JSON，不支持 YAML（Rei 2026-10-28 定）：AI 生成 JSON 最稳，也少一个依赖。
 
 ## 发布
 

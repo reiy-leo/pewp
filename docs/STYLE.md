@@ -54,12 +54,13 @@ pewp 的样式以 OOXML 为准：先把 Word、PowerPoint、Excel 能配的属�
 
 `fontFamily` 按文种分开写：
 
-```yaml
-fontFamily:
-  latin: Inter          # 西文：w:rFonts ascii + hAnsi，a:latin
-  eastAsia: 思源黑体     # 中日韩：w:rFonts eastAsia，a:ea
-  complex: Noto Naskh   # 阿拉伯文等：w:rFonts cs，a:cs
+```json
+{ "fontFamily": { "latin": "Inter", "eastAsia": "思源黑体", "complex": "Noto Naskh" } }
 ```
+
+- `latin`：西文：w:rFonts ascii + hAnsi，a:latin
+- `eastAsia`：中日韩：w:rFonts eastAsia，a:ea
+- `complex`：阿拉伯文等：w:rFonts cs，a:cs
 
 写成字符串时三项都用它。代码用什么字体不在这里定，写在 `InlineCode` 和 `Code` 组件的样式里（见第十三节）。Excel 一个单元格只能有一种字体：有中文内容取 `eastAsia`，否则取 `latin`。HTML、PDF 拼成回退列表：`latin, eastAsia`。
 
@@ -90,11 +91,15 @@ fontFamily:
 
 一条边写成对象，也能用简写字符串 `"1pt solid #CCCCCC"`：
 
-```yaml
-border: { width: 1, style: solid, color: "#CCCCCC" }
-borderBottom: { width: 2, style: double, color: "#1A73E8" }
-borderBetween: none     # 段落之间的线，w:pBdr between
+```json
+{
+  "border": { "width": 1, "style": "solid", "color": "#CCCCCC" },
+  "borderBottom": { "width": 2, "style": "double", "color": "#1A73E8" },
+  "borderBetween": "none"
+}
 ```
+
+- `borderBetween`：段落之间的线，w:pBdr between
 
 | 字段 | 用在哪 | Word | PPT | Excel | HTML | PDF |
 |---|---|---|---|---|---|---|
@@ -119,11 +124,13 @@ Word 的线宽只能在 0.25pt 到 12pt 之间（sz 2–96），Excel 只有四�
 
 ## 五、背景（对应 w:shd、a:solidFill / a:gradFill / a:pattFill、xlsx fill）
 
-```yaml
-background: "#F5F7FA"                                   # 纯色
-background: { pattern: pct20, color: "#000000", fill: "#FFFFFF" }   # 底纹
-background: { gradient: linear, angle: 90, stops: ["#FFFFFF", "#E8F0FE"] }
+```json
+{ "background": "#F5F7FA" }
+{ "background": { "pattern": "pct20", "color": "#000000", "fill": "#FFFFFF" } }
+{ "background": { "gradient": "linear", "angle": 90, "stops": ["#FFFFFF", "#E8F0FE"] } }
 ```
+
+三行分别是纯色、底纹、渐变。
 
 | 写法 | Word | PPT | Excel | HTML | PDF |
 |---|---|---|---|---|---|
@@ -218,33 +225,42 @@ Word 的列表定义在 numbering.xml：`w:abstractNum` 下每一级一个 `w:lv
 
 样式集是一整套外观：全局样式加各个组件的样式，组件样式继承全局样式。同一份文档换一个样式集，就换一套外观。
 
-```yaml
-styleSet: formal          # 这份文档用哪个样式集；命令行 --style-set 可以临时换
-
-styleSets:
-  formal:
-    global:               # 全局样式：所有组件都继承
-      fontFamily: { latin: Times New Roman, eastAsia: 宋体 }
-      fontSize: 12
-      lineHeight: 1.5
-    components:           # 组件样式：键是组件名，或「组件名。部位」
-      Heading: { fontFamily: { eastAsia: 黑体 }, bold: true }
-      Heading.1: { fontSize: 22, align: center }
-      Text: { textIndent: 2em }
-      Table.header: { background: "#F2F2F2", bold: true }
-      List.level2: { listStyleType: circle }
-    styles:               # 这个样式集里的命名样式，元素用 style: muted 引用
-      muted: { color: "#666666" }
-  modern:
-    extends: formal       # 在 formal 基础上改
-    global: { fontFamily: { latin: Inter, eastAsia: 思源黑体 }, fontSize: 11 }
-
-styles:                   # 不属于任何样式集：哪个样式集都生效
-  Heading.2: { color: "#1A73E8" }
-  warn: { color: "#D93025" }
+```json
+{
+  "styleSet": "formal",
+  "styleSets": {
+    "formal": {
+      "global": {
+        "fontFamily": { "latin": "Times New Roman", "eastAsia": "宋体" },
+        "fontSize": 12,
+        "lineHeight": 1.5
+      },
+      "components": {
+        "Heading": { "fontFamily": { "eastAsia": "黑体" }, "bold": true },
+        "Heading.1": { "fontSize": 22, "align": "center" },
+        "Text": { "textIndent": "2em" },
+        "Table.header": { "background": "#F2F2F2", "bold": true },
+        "List.level2": { "listStyleType": "circle" }
+      },
+      "styles": { "muted": { "color": "#666666" } }
+    },
+    "modern": {
+      "extends": "formal",
+      "global": { "fontFamily": { "latin": "Inter", "eastAsia": "思源黑体" }, "fontSize": 11 }
+    }
+  },
+  "styles": { "Heading.2": { "color": "#1A73E8" }, "warn": { "color": "#D93025" } }
+}
 ```
 
-- 样式集可以写在文档里，也可以单独成文件（YAML/JSON），像自定义组件一样从 `styles/` 目录或 `--style-set-file` 读。这样一套公司模板能给很多文档用。
+- `styleSet`：这份文档用哪个样式集；命令行 --style-set 可以临时换
+- `global`：全局样式：所有组件都继承
+- `components`：组件样式：键是组件名，或「组件名。部位」
+- `styles`：这个样式集里的命名样式，元素用 style: muted 引用
+- `extends`：在 formal 基础上改
+- `styles`：不属于任何样式集：哪个样式集都生效
+
+- 样式集可以写在文档里，也可以单独成 JSON 文件，像自定义组件一样从 `styles/` 目录或 `--style-set-file` 读。这样一套公司模板能给很多文档用。
 - 顶层 `styles` 不属于任何样式集。键是组件名或「组件名。部位」时是组件样式，其他是命名样式。
 - 样式集之间用 `extends` 继承，只能单继承，成环报错。
 - `global` 里只放会继承的字段（文字和段落），写边框、背景这类字段会报错，因为它们不该铺到每个组件上。
@@ -298,9 +314,18 @@ docx 里第 2 到 4 步写成 Word 的样式（styles.xml 的 w:docDefaults 和 
 
 哪些部位生效用 Table 的 props `look` 开关，对应 Word 的 w:tblLook：
 
-```yaml
-props:
-  look: { firstRow: true, lastRow: true, firstColumn: false, bandedRows: true, bandedColumns: false }
+```json
+{
+  "props": {
+    "look": {
+      "firstRow": true,
+      "lastRow": true,
+      "firstColumn": false,
+      "bandedRows": true,
+      "bandedColumns": false
+    }
+  }
+}
 ```
 
 docx 里这些写成一个真的 Word 表格样式（w:style type="table" 加 w:tblStylePr），在 Word 的「表格设计」里还能勾选、修改。
@@ -318,55 +343,83 @@ docx 里这些写成一个真的 Word 表格样式（w:style type="table" 加 w:
 
 三个地方都能写，写法一样，部位名做键：
 
-```yaml
-# ① 元素上：style 管元素本身，parts 管它的部位
-prices:
-  type: Table
-  props: { columns: [品名，单价], rows: [[苹果，"3.5"], [梨, "4.0"], [合计, "7.5"]] }
-  style: { border: "0.5pt solid #CCCCCC" }
-  parts:
-    header: { background: "#1A73E8", color: "#FFFFFF", bold: true }
-    evenRow: { background: "#F5F7FA" }
-    lastRow: { bold: true, borderTop: "1pt solid #333333" }
-
-# ② 样式集或顶层 styles 里，用「组件名。部位」做键
-styles:
-  Table.header: { bold: true }
-  Table.oddRow: { background: "#FAFAFA" }
+```json
+{
+  "prices": {
+    "type": "Table",
+    "props": {
+      "columns": ["品名", "单价"],
+      "rows": [["苹果", "3.5"], ["梨", "4.0"], ["合计", "7.5"]]
+    },
+    "style": { "border": "0.5pt solid #CCCCCC" },
+    "parts": {
+      "header": { "background": "#1A73E8", "color": "#FFFFFF", "bold": true },
+      "evenRow": { "background": "#F5F7FA" },
+      "lastRow": { "bold": true, "borderTop": "1pt solid #333333" }
+    }
+  },
+  "styles": {
+    "Table.header": { "bold": true },
+    "Table.oddRow": { "background": "#FAFAFA" }
+  }
+}
 ```
+
+- `style`：CCCCCC" }
+- `lastRow`：333333" }
 
 ### 组件自带结构和样式
 
 自定义组件的模板本身就是结构：里面放一张表，表的部位样式直接写在模板元素的 `parts` 上，用这个组件的人只管传数据。
 
-```yaml
-name: PriceTable
-description: 报价表：蓝色表头、斑马纹、合计行加粗
-props:
-  rows: { type: array, required: true }
-template:
-  root: t
-  elements:
-    t:
-      type: Table
-      props: { columns: [品名，数量，单价，金额], rows: "{{rows}}", look: { lastRow: true } }
-      style: { border: "0.5pt solid #D0D7DE" }
-      parts:
-        header: { background: "#1A73E8", color: "#FFFFFF", bold: true }
-        evenRow: { background: "#F5F7FA" }
-        lastRow: { bold: true, borderTop: "1pt solid #333333" }
-        lastColumn: { align: right }
+```json
+{
+  "name": "PriceTable",
+  "description": "报价表：蓝色表头、斑马纹、合计行加粗",
+  "props": { "rows": { "type": "array", "required": true } },
+  "template": {
+    "root": "t",
+    "elements": {
+      "t": {
+        "type": "Table",
+        "props": {
+          "columns": ["品名", "数量", "单价", "金额"],
+          "rows": "{{rows}}",
+          "look": { "lastRow": true }
+        },
+        "style": { "border": "0.5pt solid #D0D7DE" },
+        "parts": {
+          "header": { "background": "#1A73E8", "color": "#FFFFFF", "bold": true },
+          "evenRow": { "background": "#F5F7FA" },
+          "lastRow": { "bold": true, "borderTop": "1pt solid #333333" },
+          "lastColumn": { "align": "right" }
+        }
+      }
+    }
+  }
+}
 ```
+
+- `style`：D0D7DE" }
+- `lastRow`：333333" }
 
 样式集要改某个自定义组件里面的样式，用「组件名：模板元素 id」，再接部位：
 
-```yaml
-styleSets:
-  dark:
-    components:
-      PriceTable: { fontSize: 10 }              # 组件根元素
-      PriceTable:t.header: { background: "#333333" }   # 组件里表格 t 的表头
+```json
+{
+  "styleSets": {
+    "dark": {
+      "components": {
+        "PriceTable": { "fontSize": 10 },
+        "PriceTable:t.header": { "background": "#333333" }
+      }
+    }
+  }
+}
 ```
+
+- `PriceTable`：组件根元素
+- `PriceTable`：组件里表格 t 的表头
 
 组件自带的样式算这个组件的默认值，在继承顺序里排在第 2 步之后、第 3 步之前：样式集、顶层 styles、元素自己的 style 都能盖过它。
 
@@ -377,33 +430,52 @@ styleSets:
 - **InlineCode**：行内代码，写在文字的 runs 里，和普通 run 并列。取代现在 run 上的 `code: true`。
 - **Code**：整段代码，是块级组件，和 Text 并列。
 
-```yaml
-intro:
-  type: Text
-  props:
-    text:
-      - 运行
-      - { type: InlineCode, text: "pewp render doc.yaml -o out.pdf" }
-      - 生成 PDF。
-sample:
-  type: Code
-  props:
-    language: rust          # 只做标记，第一版不做语法高亮
-    code: |
-      fn main() {
-          println!("你好");   // 中文注释走 eastAsia 字体
-      }
-    lineNumbers: false
+```json
+{
+  "intro": {
+    "type": "Text",
+    "props": {
+      "text": [
+        "运行",
+        { "type": "InlineCode", "text": "pewp render doc.json -o out.pdf" },
+        "生成 PDF。"
+      ]
+    }
+  },
+  "sample": {
+    "type": "Code",
+    "props": {
+      "language": "rust",
+      "code": "fn main() {\n    println!(\"你好\");   // 中文注释走 eastAsia 字体\n}\n",
+      "lineNumbers": false
+    }
+  }
+}
 ```
+
+- `language`：只做标记，第一版不做语法高亮
 
 字体和外观写在组件样式里，跟着样式集走：
 
-```yaml
-styleSets:
-  formal:
-    components:
-      InlineCode: { fontFamily: { latin: JetBrains Mono, eastAsia: 思源黑体 }, background: "#F3F4F6" }
-      Code: { fontFamily: { latin: JetBrains Mono, eastAsia: 思源黑体 }, fontSize: 9, background: "#F6F8FA", padding: 8 }
+```json
+{
+  "styleSets": {
+    "formal": {
+      "components": {
+        "InlineCode": {
+          "fontFamily": { "latin": "JetBrains Mono", "eastAsia": "思源黑体" },
+          "background": "#F3F4F6"
+        },
+        "Code": {
+          "fontFamily": { "latin": "JetBrains Mono", "eastAsia": "思源黑体" },
+          "fontSize": 9,
+          "background": "#F6F8FA",
+          "padding": 8
+        }
+      }
+    }
+  }
+}
 ```
 
 | | Word | PPT | Excel | HTML | PDF |

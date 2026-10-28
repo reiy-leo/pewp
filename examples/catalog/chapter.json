@@ -1,0 +1,24 @@
+{
+  "name": "Chapter",
+  "description": "章节标题加一段导语",
+  "props": {
+    "n": { "type": "integer", "required": true },
+    "title": { "type": "string", "required": true },
+    "lead": { "type": "inline", "default": "" }
+  },
+  "template": {
+    "root": "h",
+    "elements": {
+      "h": { "type": "Document", "children": ["title", "lead"] },
+      "title": {
+        "type": "Heading",
+        "props": { "level": 2, "text": "第 {{n}} 章：{{title}}" }
+      },
+      "lead": {
+        "type": "Text",
+        "props": { "text": "{{lead}}" },
+        "style": { "color": "#666666" }
+      }
+    }
+  }
+}

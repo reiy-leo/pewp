@@ -25,7 +25,7 @@ enum Cmd {
         /// 指定格式（html、docx、pdf），不写就看输出文件的扩展名
         #[arg(short, long)]
         format: Option<String>,
-        /// 自定义组件的定义文件或目录（YAML/JSON），可写多次；文档目录下的 catalog/ 会自动读
+        /// 自定义组件的定义文件或目录（JSON），可写多次；文档目录下的 catalog/ 会自动读
         #[arg(long)]
         catalog: Vec<PathBuf>,
     },
