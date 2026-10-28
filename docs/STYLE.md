@@ -324,11 +324,11 @@ docx 里这些写成一个真的 Word 表格样式（w:style type="table" 加 w:
 prices:
   type: Table
   props: { columns: [品名，单价], rows: [[苹果，"3.5"], [梨, "4.0"], [合计, "7.5"]] }
-  style: { border: 0.5pt solid #CCCCCC }
+  style: { border: "0.5pt solid #CCCCCC" }
   parts:
     header: { background: "#1A73E8", color: "#FFFFFF", bold: true }
     evenRow: { background: "#F5F7FA" }
-    lastRow: { bold: true, borderTop: 1pt solid #333333 }
+    lastRow: { bold: true, borderTop: "1pt solid #333333" }
 
 # ② 样式集或顶层 styles 里，用「组件名。部位」做键
 styles:
@@ -351,11 +351,11 @@ template:
     t:
       type: Table
       props: { columns: [品名，数量，单价，金额], rows: "{{rows}}", look: { lastRow: true } }
-      style: { border: 0.5pt solid #D0D7DE }
+      style: { border: "0.5pt solid #D0D7DE" }
       parts:
         header: { background: "#1A73E8", color: "#FFFFFF", bold: true }
         evenRow: { background: "#F5F7FA" }
-        lastRow: { bold: true, borderTop: 1pt solid #333333 }
+        lastRow: { bold: true, borderTop: "1pt solid #333333" }
         lastColumn: { align: right }
 ```
 
