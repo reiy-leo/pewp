@@ -61,7 +61,7 @@ pewp 把一份 JSON 文档渲染成 docx、pdf、html。JSON 里不写排版细�
 
 `meta.page` 管纸张：`size`（默认 A4）、`landscape`、`margin`（默认 20mm）。
 
-样式字段：`fontFamily`、`fontSize`（pt）、`color`、`bold`、`italic`、`underline`、`align`（left/center/right/justify）、`lineHeight`（倍数）、`spaceBefore`、`spaceAfter`、`background`、`border`（边框颜色，1pt 实线）、`padding`。颜色写 `#RRGGBB`。某个格式表达不了的样式，渲染时忽略并给出警告，不报错。
+样式字段（完整设计见 [STYLE.md](STYLE.md)，草案）：`fontFamily`、`fontSize`（pt）、`color`、`bold`、`italic`、`underline`、`align`（left/center/right/justify）、`lineHeight`（倍数）、`spaceBefore`、`spaceAfter`、`background`、`border`（边框颜色，1pt 实线）、`padding`。颜色写 `#RRGGBB`。某个格式表达不了的样式，渲染时忽略并给出警告，不报错。
 
 完整例子见 `examples/showcase.json`。
 
