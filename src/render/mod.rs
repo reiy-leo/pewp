@@ -2,6 +2,7 @@
 
 pub mod docx;
 pub mod html;
+pub mod pdf;
 
 use std::path::{Path, PathBuf};
 
@@ -54,6 +55,6 @@ pub fn render(doc: &Doc, tree: &Node, format: Format, opts: &Options) -> Result<
     match format {
         Format::Html => Ok(html::render(doc, tree, opts)),
         Format::Docx => docx::render(doc, tree, opts),
-        Format::Pdf => bail!("pdf 渲染器还没写"),
+        Format::Pdf => pdf::render(doc, tree, opts),
     }
 }

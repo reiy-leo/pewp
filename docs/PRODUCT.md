@@ -74,6 +74,13 @@ pewp 把一份 JSON 文档渲染成 docx、pdf、html。JSON 里不写排版细�
 - Slide 变成一个二级标题加正文，后面分页。
 - 纸张、方向、页边距按 `meta.page` 设置；表格铺满版心，`widths` 按比例分。
 
+pdf 用 Typst 排版，有这些不同：
+
+- 中文用系统字体：macOS 上是苹方，Linux 上是 Noto Sans CJK。都没有时退回 Typst 自带字体，中文可能显示不全。
+- 中文字体没有斜体，`italic` 对中文不起作用。
+- 支持 SVG；远程图片暂不支持，改成显示 alt 文字。
+- 颜色只认十六进制写法，比如 `#c00`、`#1a73e8`。
+
 ## 自定义组件
 
 一个组件一个文件，放在 `catalog/` 或用 `--catalog` 指定。例子：
