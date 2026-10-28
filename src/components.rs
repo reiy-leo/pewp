@@ -2,47 +2,131 @@
 
 use schemars::{JsonSchema, Schema, schema_for};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
-/// 一段文字里的一小段，可以单独加粗、变色或加链接。
+use crate::style::{Style, Underline};
+
+/// run 的种类：普通文字或行内代码。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub enum RunKind {
+    InlineCode,
+}
+
+/// 一段文字里的一小段，可以单独设文字样式或加链接。
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Run {
     pub text: String,
+    /// 写 "InlineCode" 表示行内代码，外观由 InlineCode 组件样式决定
+    #[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
+    pub kind: Option<RunKind>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub href: Option<String>,
+    /// 常用文字样式的简写
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bold: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub italic: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub underline: Option<bool>,
+    pub underline: Option<Underline>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub code: Option<bool>,
+    pub color: Option<crate::style::Color>,
+    /// 样式名、样式名数组或样式对象，只能写文字字段
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub color: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub href: Option<String>,
+    #[schemars(with = "Option<Value>")]
+    pub style: Option<Value>,
+    /// 算好的样式，渲染器用它，不从 JSON 读
+    #[serde(skip)]
+    #[schemars(skip)]
+    pub computed: Style,
 }
 
-/// 纯文本，或者分段的富文本。
+impl Run {
+    pub fn plain(text: &str) -> Run {
+        Run {
+            text: text.to_string(),
+            kind: None,
+            href: None,
+            bold: None,
+            italic: None,
+            underline: None,
+            color: None,
+            style: None,
+            computed: Style::default(),
+        }
+    }
+
+    pub fn is_code(&self) -> bool {
+        self.kind == Some(RunKind::InlineCode)
+    }
+}
+
+/// 文字类 props：纯字符串，或 runs 数组（数组里也能直接写字符串）。
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum Inline {
     Plain(String),
-    Runs(Vec<Run>),
+    Runs(Vec<RunOrText>),
+}
+
+// 一份文档里的 run 不多，不值得为大小差异装箱
+#[allow(clippy::large_enum_variant)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum RunOrText {
+    Text(String),
+    Run(Run),
 }
 
 impl Inline {
-    pub fn runs(&self) -> Vec<Run> {
+    /// 统一成 runs，字符串变成普通 run。
+    pub fn normalize(&mut self) {
+        if let Inline::Plain(s) = self {
+            *self = Inline::Runs(vec![RunOrText::Run(Run::plain(s))]);
+        }
+        if let Inline::Runs(rs) = self {
+            for r in rs.iter_mut() {
+                if let RunOrText::Text(s) = r {
+                    *r = RunOrText::Run(Run::plain(s));
+                }
+            }
+        }
+    }
+
+    /// 先 normalize 过才有意义。
+    pub fn runs(&self) -> impl Iterator<Item = &Run> {
+        let v: &[RunOrText] = match self {
+            Inline::Runs(r) => r,
+            Inline::Plain(_) => &[],
+        };
+        v.iter().filter_map(|r| match r {
+            RunOrText::Run(r) => Some(r),
+            RunOrText::Text(_) => None,
+        })
+    }
+
+    pub fn runs_mut(&mut self) -> impl Iterator<Item = &mut Run> {
+        let v: &mut [RunOrText] = match self {
+            Inline::Runs(r) => r,
+            Inline::Plain(_) => &mut [],
+        };
+        v.iter_mut().filter_map(|r| match r {
+            RunOrText::Run(r) => Some(r),
+            RunOrText::Text(_) => None,
+        })
+    }
+
+    /// 纯文字，给 alt、标题这类地方用。
+    pub fn plain_text(&self) -> String {
         match self {
-            Inline::Plain(s) => vec![Run {
-                text: s.clone(),
-                bold: None,
-                italic: None,
-                underline: None,
-                code: None,
-                color: None,
-                href: None,
-            }],
-            Inline::Runs(r) => r.clone(),
+            Inline::Plain(s) => s.clone(),
+            Inline::Runs(rs) => rs
+                .iter()
+                .map(|r| match r {
+                    RunOrText::Text(s) => s.as_str(),
+                    RunOrText::Run(r) => r.text.as_str(),
+                })
+                .collect(),
         }
     }
 }
@@ -54,7 +138,6 @@ pub struct DocumentProps {}
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct HeadingProps {
-    /// 1 到 6
     #[schemars(range(min = 1, max = 6))]
     pub level: u8,
     pub text: Inline,
@@ -67,37 +150,135 @@ pub struct TextProps {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct CodeProps {
+    pub code: String,
+    /// 语言名，只做标记
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    #[serde(default)]
+    pub line_numbers: bool,
+}
+
+/// 列表项：文字，或带子列表的 { text, items, ordered }。
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(untagged)]
+pub enum ListItem {
+    Plain(Inline),
+    Nested(NestedItem),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NestedItem {
+    pub text: Inline,
+    #[serde(default)]
+    pub items: Vec<ListItem>,
+    /// 子列表要不要编号，不写跟上一级一样
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ordered: Option<bool>,
+}
+
+impl ListItem {
+    pub fn text(&self) -> &Inline {
+        match self {
+            ListItem::Plain(t) => t,
+            ListItem::Nested(n) => &n.text,
+        }
+    }
+    pub fn text_mut(&mut self) -> &mut Inline {
+        match self {
+            ListItem::Plain(t) => t,
+            ListItem::Nested(n) => &mut n.text,
+        }
+    }
+    pub fn children(&self) -> &[ListItem] {
+        match self {
+            ListItem::Plain(_) => &[],
+            ListItem::Nested(n) => &n.items,
+        }
+    }
+    pub fn children_mut(&mut self) -> &mut [ListItem] {
+        match self {
+            ListItem::Plain(_) => &mut [],
+            ListItem::Nested(n) => &mut n.items,
+        }
+    }
+    pub fn ordered(&self) -> Option<bool> {
+        match self {
+            ListItem::Plain(_) => None,
+            ListItem::Nested(n) => n.ordered,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ListProps {
-    /// true 是编号列表
     #[serde(default)]
     pub ordered: bool,
-    pub items: Vec<Inline>,
+    pub items: Vec<ListItem>,
+}
+
+/// 哪些表格部位生效，对应 Word 的 w:tblLook。
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub struct TableLook {
+    #[serde(default = "yes")]
+    pub first_row: bool,
+    #[serde(default)]
+    pub last_row: bool,
+    #[serde(default = "yes")]
+    pub first_column: bool,
+    #[serde(default)]
+    pub last_column: bool,
+    #[serde(default = "yes")]
+    pub banded_rows: bool,
+    #[serde(default)]
+    pub banded_columns: bool,
+}
+
+fn yes() -> bool {
+    true
+}
+
+impl Default for TableLook {
+    fn default() -> Self {
+        TableLook {
+            first_row: true,
+            last_row: false,
+            first_column: true,
+            last_column: false,
+            banded_rows: true,
+            banded_columns: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TableProps {
-    /// 表头；不写就没有表头行
+    /// 表头；有表头时它就是 firstRow
     #[serde(default)]
     pub columns: Vec<Inline>,
     pub rows: Vec<Vec<Inline>>,
-    /// 每列宽度占比，如 [1, 2, 1]
+    /// 各列宽度的比例
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub widths: Option<Vec<f32>>,
+    #[serde(default)]
+    pub look: TableLook,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ImageProps {
-    /// 本地路径（相对文档所在目录）或 http(s) 链接
     pub src: String,
     #[serde(default)]
     pub alt: String,
-    /// 宽度，pt
+    /// 宽，pt
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub width: Option<f32>,
-    /// 高度，pt
+    /// 高，pt
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub height: Option<f32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -115,12 +296,12 @@ pub struct SlideProps {
     pub title: Option<String>,
 }
 
-/// 解析好的组件。
 #[derive(Debug, Clone)]
 pub enum Component {
     Document(DocumentProps),
     Heading(HeadingProps),
     Text(TextProps),
+    Code(CodeProps),
     List(ListProps),
     Table(TableProps),
     Image(ImageProps),
@@ -128,64 +309,138 @@ pub enum Component {
     Slide(SlideProps),
 }
 
+impl Component {
+    /// 组件里所有文字类 props，按出现顺序。
+    pub fn inlines_mut(&mut self) -> Vec<&mut Inline> {
+        fn list<'a>(items: &'a mut [ListItem], out: &mut Vec<&'a mut Inline>) {
+            for it in items {
+                match it {
+                    ListItem::Plain(t) => out.push(t),
+                    ListItem::Nested(n) => {
+                        out.push(&mut n.text);
+                        list(&mut n.items, out);
+                    }
+                }
+            }
+        }
+        let mut out = Vec::new();
+        match self {
+            Component::Heading(p) => out.push(&mut p.text),
+            Component::Text(p) => out.push(&mut p.text),
+            Component::List(p) => list(&mut p.items, &mut out),
+            Component::Table(p) => {
+                out.extend(p.columns.iter_mut());
+                for r in &mut p.rows {
+                    out.extend(r.iter_mut());
+                }
+            }
+            _ => {}
+        }
+        out
+    }
+}
+
 pub struct Spec {
     pub name: &'static str,
     pub description: &'static str,
     /// 能不能有 children
     pub container: bool,
+    /// 能单独设样式的部位
+    pub parts: &'static [&'static str],
     pub schema: fn() -> Schema,
 }
+
+pub const TABLE_PARTS: &[&str] = &[
+    "table",
+    "cell",
+    "header",
+    "firstRow",
+    "lastRow",
+    "firstColumn",
+    "lastColumn",
+    "oddRow",
+    "evenRow",
+    "oddColumn",
+    "evenColumn",
+    "topLeftCell",
+    "topRightCell",
+    "bottomLeftCell",
+    "bottomRightCell",
+];
+
+pub const LIST_PARTS: &[&str] = &[
+    "level1", "level2", "level3", "level4", "level5", "level6", "level7", "level8", "level9",
+    "marker", "item",
+];
 
 pub const BUILTINS: &[Spec] = &[
     Spec {
         name: "Document",
         description: "根容器，按顺序排列子元素",
         container: true,
+        parts: &[],
         schema: || schema_for!(DocumentProps),
     },
     Spec {
         name: "Heading",
         description: "标题，level 1 到 6",
         container: false,
+        parts: &[],
         schema: || schema_for!(HeadingProps),
     },
     Spec {
         name: "Text",
-        description: "一段正文，可以是纯文本或富文本 runs",
+        description: "一段正文，可以是纯文本或富文本 runs（runs 里可以放 InlineCode）",
         container: false,
+        parts: &[],
         schema: || schema_for!(TextProps),
     },
     Spec {
-        name: "List",
-        description: "列表，ordered 为 true 时带编号",
+        name: "Code",
+        description: "整段代码，保留空格和换行",
         container: false,
+        parts: &[],
+        schema: || schema_for!(CodeProps),
+    },
+    Spec {
+        name: "List",
+        description: "列表，ordered 为 true 时带编号；项可以带子列表",
+        container: false,
+        parts: LIST_PARTS,
         schema: || schema_for!(ListProps),
     },
     Spec {
         name: "Table",
         description: "表格，columns 是表头，rows 是数据行",
         container: false,
+        parts: TABLE_PARTS,
         schema: || schema_for!(TableProps),
     },
     Spec {
         name: "Image",
         description: "图片，src 是本地路径或链接",
         container: false,
+        parts: &["caption"],
         schema: || schema_for!(ImageProps),
     },
     Spec {
         name: "PageBreak",
         description: "分页",
         container: false,
+        parts: &[],
         schema: || schema_for!(PageBreakProps),
     },
     Spec {
         name: "Slide",
         description: "一页幻灯片（16:9），子元素排在里面",
         container: true,
+        parts: &["title", "body"],
         schema: || schema_for!(SlideProps),
     },
 ];
+
+/// 不能当元素、只用来挂样式的组件名。
+pub const STYLE_ONLY: &[&str] = &["InlineCode"];
 
 pub fn spec(name: &str) -> Option<&'static Spec> {
     BUILTINS.iter().find(|s| s.name == name)
@@ -197,7 +452,7 @@ pub fn parse(kind: &str, props: &serde_json::Value) -> anyhow::Result<Component>
     } else {
         props.clone()
     };
-    Ok(match kind {
+    let mut c = match kind {
         "Document" => Component::Document(serde_json::from_value(p)?),
         "Heading" => {
             let h: HeadingProps = serde_json::from_value(p)?;
@@ -207,11 +462,17 @@ pub fn parse(kind: &str, props: &serde_json::Value) -> anyhow::Result<Component>
             Component::Heading(h)
         }
         "Text" => Component::Text(serde_json::from_value(p)?),
+        "Code" => Component::Code(serde_json::from_value(p)?),
         "List" => Component::List(serde_json::from_value(p)?),
         "Table" => Component::Table(serde_json::from_value(p)?),
         "Image" => Component::Image(serde_json::from_value(p)?),
         "PageBreak" => Component::PageBreak(serde_json::from_value(p)?),
         "Slide" => Component::Slide(serde_json::from_value(p)?),
+        "InlineCode" => anyhow::bail!("InlineCode 只能写在文字的 runs 里，不能单独当元素"),
         other => anyhow::bail!("组件 `{other}` 没注册"),
-    })
+    };
+    for t in c.inlines_mut() {
+        t.normalize();
+    }
+    Ok(c)
 }

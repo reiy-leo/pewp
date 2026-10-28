@@ -18,13 +18,13 @@
         { "text": "加粗", "bold": true }, { "text": "、" },
         { "text": "斜体", "italic": true }, { "text": "、" },
         { "text": "红字", "color": "#CF222E" }, { "text": "、" },
-        { "text": "代码", "code": true }, { "text": "、" },
+        { "text": "代码", "type": "InlineCode" }, { "text": "、" },
         { "text": "链接", "href": "https://github.com/reiy-leo/pewp" }, { "text": "。" }
       ] },
       "style": ["muted", { "fontSize": 11 }]
     },
     "h-list": { "type": "Heading", "props": { "level": 2, "text": "列表" } },
-    "steps": { "type": "List", "props": { "ordered": true, "items": ["写 JSON", "pewp check", [{ "text": "pewp render", "code": true }, { "text": " 出文件" }]] } },
+    "steps": { "type": "List", "props": { "ordered": true, "items": ["写 JSON", "pewp check", [{ "text": "pewp render", "type": "InlineCode" }, { "text": " 出文件" }]] } },
     "h-table": { "type": "Heading", "props": { "level": 2, "text": "表格" } },
     "table": {
       "type": "Table",

@@ -14,6 +14,31 @@ struct Cli {
     cmd: Cmd,
 }
 
+/// 文档以外的定义。
+#[derive(clap::Args)]
+struct Defs {
+    /// 自定义组件的定义文件或目录（JSON），可写多次；文档目录下的 catalog/ 会自动读
+    #[arg(long)]
+    catalog: Vec<PathBuf>,
+    /// 样式集文件或目录（JSON），可写多次；文档目录下的 styles/ 会自动读
+    #[arg(long)]
+    style_sets: Vec<PathBuf>,
+    /// 用哪个样式集，优先于文档里的 styleSet
+    #[arg(long)]
+    style_set: Option<String>,
+}
+
+impl Defs {
+    fn env(self, input: &Path) -> Result<pewp::Env> {
+        pewp::load_env(
+            doc_dir(input).as_deref(),
+            &self.catalog,
+            &self.style_sets,
+            self.style_set,
+        )
+    }
+}
+
 #[derive(Subcommand)]
 enum Cmd {
     /// 渲染文档：pewp render doc.json -o out.html（输入写 - 表示从标准输入读）
@@ -25,16 +50,14 @@ enum Cmd {
         /// 指定格式（html、docx、pdf），不写就看输出文件的扩展名
         #[arg(short, long)]
         format: Option<String>,
-        /// 自定义组件的定义文件或目录（JSON），可写多次；文档目录下的 catalog/ 会自动读
-        #[arg(long)]
-        catalog: Vec<PathBuf>,
+        #[command(flatten)]
+        defs: Defs,
     },
     /// 只校验，不出文件
     Check {
         input: PathBuf,
-        /// 同 render 的 --catalog
-        #[arg(long)]
-        catalog: Vec<PathBuf>,
+        #[command(flatten)]
+        defs: Defs,
     },
     /// 列出可用组件；加 --json 输出每个组件 props 的 JSON Schema
     Catalog {
@@ -73,7 +96,7 @@ fn main() -> Result<()> {
             input,
             output,
             format,
-            catalog,
+            defs,
         } => {
             let fmt = match &format {
                 Some(f) => render::Format::from_name(&f.to_ascii_lowercase())?,
@@ -82,8 +105,8 @@ fn main() -> Result<()> {
             };
             let text = read_input(&input)?;
             let base_dir = doc_dir(&input);
-            let cat = pewp::load_catalog(base_dir.as_deref(), &catalog)?;
-            let (d, tree) = pewp::prepare(&text, &cat)
+            let env = defs.env(&input)?;
+            let (d, tree) = pewp::prepare(&text, &env)
                 .with_context(|| format!("{} 不是合法的 pewp 文档", input.display()))?;
             let out = render::render(&d, &tree, fmt, &render::Options { base_dir })?;
             for w in &out.warnings {
@@ -98,16 +121,16 @@ fn main() -> Result<()> {
             }
             Ok(())
         }
-        Cmd::Check { input, catalog } => {
+        Cmd::Check { input, defs } => {
             let text = read_input(&input)?;
-            let cat = pewp::load_catalog(doc_dir(&input).as_deref(), &catalog)?;
-            let (d, _) = pewp::prepare(&text, &cat)
+            let env = defs.env(&input)?;
+            let (d, _) = pewp::prepare(&text, &env)
                 .with_context(|| format!("{} 校验没通过", input.display()))?;
             println!("ok：展开后 {} 个元素", d.elements.len());
             Ok(())
         }
         Cmd::Catalog { json, catalog } => {
-            let cat = pewp::load_catalog(None, &catalog)?;
+            let cat = pewp::load_env(None, &catalog, &[], None)?.catalog;
             if json {
                 let mut m = serde_json::Map::new();
                 for s in components::BUILTINS {

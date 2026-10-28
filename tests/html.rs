@@ -12,10 +12,10 @@ fn html(json: &str) -> String {
 #[test]
 fn hello_example_renders() {
     let s = html(include_str!("../examples/hello.json"));
-    assert!(s.contains("<h1 id=\"title\">季度报告</h1>"));
-    assert!(s.contains("<th>格式</th>"));
+    assert!(s.contains(">季度报告</h1>"));
+    assert!(s.contains(">格式</th>"));
     assert!(s.contains("color:#666666"));
-    assert!(s.contains("@page { size: A4; margin: 20mm; }"));
+    assert!(s.contains("@page { size: 595.2756pt 841.8898pt;"));
 }
 
 #[test]
@@ -25,12 +25,12 @@ fn escapes_text_and_css() {
       "root": "d",
       "elements": {
         "d": { "type": "Document", "children": ["t"] },
-        "t": { "type": "Text", "props": { "text": [{ "text": "<b>x</b>", "color": "red;}body{display:none" }] } }
+        "t": { "type": "Text", "props": { "text": [{ "text": "<b>x</b>", "style": { "fontFamily": "x\";}body{display:none" } }] } }
       }
     }"##,
     );
     assert!(s.contains("&lt;b&gt;x&lt;/b&gt;"));
-    assert!(!s.contains("red;}"));
+    assert!(!s.contains("}body{"));
 }
 
 #[test]
@@ -46,8 +46,8 @@ fn rich_runs_and_slide() {
     }"##,
     );
     assert!(s.contains("class=\"pewp-slide\""));
-    assert!(s.contains("<strong>粗</strong>"));
-    assert!(s.contains("<a href=\"https://example.com\">链</a>"));
+    assert!(s.contains("font-weight:700;\">粗</span>"));
+    assert!(s.contains("<a href=\"https://example.com\"><span"));
 }
 
 fn err(json: &str) -> String {
@@ -84,7 +84,9 @@ fn rejects_bad_documents() {
 #[test]
 fn showcase_example_renders() {
     let s = html(include_str!("../examples/showcase.json"));
-    assert!(s.contains("<ol id=\"steps\">"));
+    assert!(s.contains("class=\"pewp-list\" id=\"steps\""));
+    assert!(s.contains(">1.</span>"));
+    assert!(s.contains("<code style="));
     assert!(s.contains("<col style=\"width:20.00%\">"));
     assert!(s.contains("class=\"pewp-pagebreak\""));
     assert!(s.contains("font-size:11pt"));

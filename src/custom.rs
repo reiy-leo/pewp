@@ -7,7 +7,7 @@
 //! - 字符串正好是 `{{prop}}` 时，整个换成 prop 的值（可以是数组、对象，比如 runs）；
 //!   字符串里夹着 `{{prop}}` 时，按文字替换，这时 prop 只能是字符串、数字或布尔。
 //! - 容器组件在模板某个元素的 children 里写 `$children`，实例的子元素放到那里。
-//! - 实例的 style 叠在模板根元素的 style 后面。
+//! - 模板里的 style、parts 是组件默认值：样式集和顶层 styles 能覆盖它，实例上写的 style、parts 优先级最高。
 
 use std::{
     collections::BTreeMap,
@@ -20,7 +20,7 @@ use serde_json::{Value, json};
 
 use crate::{
     components,
-    doc::{Doc, Element},
+    doc::{Doc, Element, Origin},
 };
 
 /// 展开最多套几层，超过就当成环。
@@ -325,23 +325,35 @@ impl Catalog {
                 }
                 *ch = out;
             }
-            if *tid == tpl.root
-                && let Some(s) = &el.style
-            {
-                let merged = match v.get("style") {
-                    None | Some(Value::Null) => s.clone(),
-                    Some(Value::Array(a)) => {
-                        let mut a = a.clone();
-                        a.push(s.clone());
-                        Value::Array(a)
-                    }
-                    Some(t) => json!([t, s]),
-                };
-                v["style"] = merged;
-            }
-            let element: Element = serde_json::from_value(v).with_context(|| {
+            // 模板里写的 style、parts 算组件默认值，优先级低于样式集；实例上写的才是元素自己的
+            let tpl_style = v.as_object_mut().and_then(|m| m.remove("style"));
+            let tpl_parts = v.as_object_mut().and_then(|m| m.remove("parts"));
+            let mut element: Element = serde_json::from_value(v).with_context(|| {
                 format!("展开 `{id}`（{}）后，模板元素 `{tid}` 的结构不对", def.name)
             })?;
+            element
+                .template_styles
+                .extend(tpl_style.filter(|x| !x.is_null()));
+            if let Some(Value::Object(m)) = tpl_parts {
+                element.template_parts.push(m.into_iter().collect());
+            }
+            element.origins.push(Origin {
+                component: def.name.clone(),
+                element: tid.clone(),
+                root: *tid == tpl.root,
+            });
+            if *tid == tpl.root {
+                // 外层模板给这个实例写的样式，排在内层模板之后
+                element
+                    .template_styles
+                    .extend(el.template_styles.iter().cloned());
+                element
+                    .template_parts
+                    .extend(el.template_parts.iter().cloned());
+                element.origins.extend(el.origins.iter().cloned());
+                element.style = el.style.clone();
+                element.parts = el.parts.clone();
+            }
             let nid = new_id(tid);
             if doc.elements.contains_key(&nid) {
                 bail!("展开 `{id}` 时生成的元素 id `{nid}` 和文档里已有的重复了");

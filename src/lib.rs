@@ -1,6 +1,7 @@
 //! pewp：一份 JSON，按组件目录渲染成 docx / pdf / html。
 
 pub mod assets;
+pub mod cascade;
 pub mod components;
 pub mod custom;
 pub mod doc;
@@ -8,28 +9,37 @@ pub mod render;
 pub mod style;
 pub mod units;
 
-use std::path::Path;
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{Context, Result};
 
-/// 解析、展开自定义组件、校验，得到可以渲染的文档和元素树。
-/// `catalog` 是外部定义文件里的组件；文档自己 `components` 里写的会合进来。
-pub fn prepare(json: &str, catalog: &custom::Catalog) -> Result<(doc::Doc, doc::Node)> {
+/// 文档以外的东西：自定义组件、样式集文件、命令行选的样式集。
+#[derive(Debug, Default, Clone)]
+pub struct Env {
+    pub catalog: custom::Catalog,
+    pub style_sets: BTreeMap<String, cascade::StyleSetDef>,
+    /// 命令行 --style-set，优先于文档的 styleSet
+    pub style_set: Option<String>,
+}
+
+/// 解析、展开自定义组件、算样式、校验，得到可以渲染的文档和元素树。
+/// 文档自己 `components` 里写的组件会合进 `env.catalog`。
+pub fn prepare(json: &str, env: &Env) -> Result<(doc::Doc, doc::Node)> {
     let mut d = doc::parse(json)?;
     let inline = std::mem::take(&mut d.components);
-    let expanded = if inline.is_empty() {
-        catalog.expand(&mut d)
-    } else {
-        let mut all = catalog.clone();
-        for def in inline {
-            let name = def.name.clone();
-            all.add(def)
-                .with_context(|| format!("文档里的组件定义 `{name}` 有问题"))?;
-        }
-        all.expand(&mut d)
-    };
-    expanded?;
-    let tree = d.tree()?;
+    let mut all = env.catalog.clone();
+    for def in inline {
+        let name = def.name.clone();
+        all.add(def)
+            .with_context(|| format!("文档里的组件定义 `{name}` 有问题"))?;
+    }
+    all.expand(&mut d)?;
+    d.custom_names = all.defs().map(|x| x.name.clone()).collect();
+    let sheet = cascade::Sheet::build(&d, &env.style_sets, env.style_set.as_deref())?;
+    let tree = d.tree_with(&sheet)?;
     Ok((d, tree))
 }
 
@@ -39,9 +49,9 @@ pub fn render_with(
     json: &str,
     format: render::Format,
     base_dir: Option<&Path>,
-    catalog: &custom::Catalog,
+    env: &Env,
 ) -> Result<render::Output> {
-    let (d, tree) = prepare(json, catalog)?;
+    let (d, tree) = prepare(json, env)?;
     render::render(
         &d,
         &tree,
@@ -52,29 +62,41 @@ pub fn render_with(
     )
 }
 
-/// 不带外部组件定义的 [`render_with`]。
+/// 不带外部组件和样式集的 [`render_with`]。
 pub fn render_str(
     json: &str,
     format: render::Format,
     base_dir: Option<&Path>,
 ) -> Result<render::Output> {
-    render_with(json, format, base_dir, &custom::Catalog::new())
+    render_with(json, format, base_dir, &Env::default())
 }
 
-/// 读组件定义：先读文档目录下的 `catalog/`（有的话），再读 `--catalog` 指定的文件或目录。
-pub fn load_catalog(
+/// 读文档以外的定义：文档目录下的 `catalog/`、`styles/`（有的话），再读命令行指定的。
+pub fn load_env(
     doc_dir: Option<&Path>,
-    extra: &[std::path::PathBuf],
-) -> Result<custom::Catalog> {
-    let mut c = custom::Catalog::new();
+    catalogs: &[PathBuf],
+    style_sets: &[PathBuf],
+    style_set: Option<String>,
+) -> Result<Env> {
+    let mut env = Env {
+        style_set,
+        ..Env::default()
+    };
     if let Some(dir) = doc_dir {
-        let auto = dir.join("catalog");
-        if auto.is_dir() {
-            c.load_path(&auto)?;
+        let c = dir.join("catalog");
+        if c.is_dir() {
+            env.catalog.load_path(&c)?;
+        }
+        let s = dir.join("styles");
+        if s.is_dir() {
+            cascade::load_style_sets(&s, &mut env.style_sets)?;
         }
     }
-    for p in extra {
-        c.load_path(p)?;
+    for p in catalogs {
+        env.catalog.load_path(p)?;
     }
-    Ok(c)
+    for p in style_sets {
+        cascade::load_style_sets(p, &mut env.style_sets)?;
+    }
+    Ok(env)
 }

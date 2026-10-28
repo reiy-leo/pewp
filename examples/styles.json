@@ -1,0 +1,58 @@
+{
+  "version": "0.1",
+  "meta": { "title": "样式示例", "lang": "zh-CN", "page": { "size": "A4", "margin": "20mm" } },
+  "styleSet": "report",
+  "styleSets": {
+    "report": {
+      "global": { "fontFamily": { "latin": "Liberation Serif, Times New Roman", "eastAsia": "Noto Serif CJK SC, Songti SC, SimSun" }, "fontSize": 11, "lineHeight": 1.6 },
+      "components": {
+        "Heading": { "fontFamily": { "eastAsia": "Noto Sans CJK SC, PingFang SC, Microsoft YaHei" }, "color": "#1F2328" },
+        "Heading.1": { "fontSize": 22, "align": "center", "spaceAfter": 12 },
+        "Heading.2": { "borderBottom": "1pt solid #D0D7DE", "padding": 2 },
+        "Text": { "textIndent": "2em", "align": "justify" },
+        "Table.header": { "background": "#1A73E8", "color": "#FFFFFF" },
+        "Table.evenRow": { "background": "#F5F7FA" }
+      },
+      "styles": { "note": { "background": "#FFF8C5", "borderLeft": "3pt solid #D4A72C", "padding": 8, "textIndent": 0 } }
+    }
+  },
+  "root": "doc",
+  "elements": {
+    "doc": { "type": "Document", "children": ["title", "intro", "h-list", "list", "h-table", "table", "h-code", "code", "tip"] },
+    "title": { "type": "Heading", "props": { "level": 1, "text": "样式集示例" } },
+    "intro": { "type": "Text", "props": { "text": [
+      "这份文档用的是 ", { "type": "InlineCode", "text": "report" }, " 样式集：正文宋体、首行缩进两个字、两端对齐；标题黑体。",
+      { "text": "着重的字", "bold": true, "color": "#CF222E" }, "可以单独设，",
+      { "text": "上标", "style": { "verticalAlign": "super" } }, "和", { "text": "删除线", "style": { "strike": true } }, "也行。"
+    ] } },
+    "h-list": { "type": "Heading", "props": { "level": 2, "text": "多级列表" } },
+    "list": {
+      "type": "List",
+      "props": { "ordered": true, "items": [
+        "准备数据",
+        { "text": "选择样式集", "items": ["report：报告", "slides：幻灯片"] },
+        "渲染出文件"
+      ] },
+      "style": { "listStyleType": "cjk-decimal", "listMarkerFormat": "%1、", "listMarkerAlign": "right" },
+      "parts": { "level2": { "listStyleType": "decimal", "listMarkerFormat": "%1.%2", "listMarkerColor": "#1A73E8" } }
+    },
+    "h-table": { "type": "Heading", "props": { "level": 2, "text": "表格部位" } },
+    "table": {
+      "type": "Table",
+      "props": {
+        "columns": ["品名", "数量", "单价", "金额"],
+        "widths": [3, 1, 1, 1],
+        "rows": [["苹果", "2", "3.50", "7.00"], ["梨", "1", "4.00", "4.00"], ["桃", "3", "5.00", "15.00"], ["合计", "", "", "26.00"]],
+        "look": { "lastRow": true, "lastColumn": true }
+      },
+      "style": { "border": "0.5pt solid #D0D7DE", "fontSize": 10 },
+      "parts": {
+        "lastRow": { "bold": true, "borderTop": "1.5pt double #333333" },
+        "lastColumn": { "align": "right" }
+      }
+    },
+    "h-code": { "type": "Heading", "props": { "level": 2, "text": "代码" } },
+    "code": { "type": "Code", "props": { "language": "json", "code": "{\n  \"type\": \"Text\",\n  \"props\": { \"text\": \"你好\" }\n}", "lineNumbers": true } },
+    "tip": { "type": "Text", "props": { "text": "提示框用的是样式集里的命名样式 note：左边粗线、浅黄底。" }, "style": "note" }
+  }
+}

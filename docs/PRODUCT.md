@@ -55,15 +55,16 @@ pewp 把一份 JSON 文档渲染成 docx、pdf、html。JSON 里不写排版细�
 - `type`：组件名，必须在组件目录里。`pewp catalog --json` 能看到每个组件 props 的 JSON Schema。
 - `props`：组件自己的参数，多写、少写、写错类型都会报错。
 - `style`：三种写法都行：样式名 `"muted"`；样式名数组 `["muted", "center"]`，后面的覆盖前面的；样式对象 `{ "fontSize": 11 }`。数组里也能混写对象。
+- `parts`：部位样式，比如表格的 `header`、`evenRow`、`lastRow`，列表的 `level2`、`marker`。
 - `children`：子元素 id 列表，只有容器组件（Document、Slide）能用。每个元素只能被引用一次。
 
-文字类的 props（Heading 的 `text`、Text 的 `text`、List 的每一项、表格的每一格）都能写成纯字符串，也能写成 runs 数组，每段单独设置 `bold`、`italic`、`underline`、`code`、`color`、`href`。
+文字类的 props（Heading 的 `text`、Text 的 `text`、List 的每一项、表格的每一格）都能写成纯字符串，也能写成 runs 数组。数组里可以直接写字符串，也可以写对象：`bold`、`italic`、`underline`、`color`、`href` 是简写，`style` 能写全部文字样式；`"type": "InlineCode"` 表示行内代码。列表项可以写成 `{ "text": …, "items": [...] }` 带子列表。
 
-`meta.page` 管纸张：`size`（默认 A4）、`landscape`、`margin`（默认 20mm）。
+`meta.page` 管纸张：`size`（默认 A4，也可以写 `{ "width", "height" }`）、`landscape`、`margin` 和四个单边、`gutter`、`columns`。
 
-样式字段（完整设计见 [STYLE.md](STYLE.md)，草案）：`fontFamily`、`fontSize`（pt）、`color`、`bold`、`italic`、`underline`、`align`（left/center/right/justify）、`lineHeight`（倍数）、`spaceBefore`、`spaceAfter`、`background`、`border`（边框颜色，1pt 实线）、`padding`。颜色写 `#RRGGBB`。某个格式表达不了的样式，渲染时忽略并给出警告，不报错。
+样式字段、样式集（`styleSet`、`styleSets`）、部位样式和层叠顺序都在 [STYLE.md](STYLE.md)。字段名跟 CSS 走，取值以 OOXML 为准；某个格式表达不了的样式，渲染时忽略并给一次警告，不报错。
 
-完整例子见 `examples/showcase.json`。
+完整例子见 `examples/showcase.json` 和 `examples/styles.json`。
 
 ## 各格式的差别
 

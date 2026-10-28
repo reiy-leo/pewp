@@ -1,9 +1,9 @@
 use std::path::Path;
 
-use pewp::{custom::Catalog, render::Format};
+use pewp::{Env, render::Format};
 
-fn examples_catalog() -> Catalog {
-    pewp::load_catalog(Some(Path::new("examples")), &[]).unwrap()
+fn examples_catalog() -> Env {
+    pewp::load_env(Some(Path::new("examples")), &[], &[], None).unwrap()
 }
 
 #[test]
@@ -38,7 +38,7 @@ fn doc_with(components: &str, elements: &str) -> String {
 }
 
 fn err(json: &str) -> String {
-    format!("{:#}", pewp::prepare(json, &Catalog::new()).unwrap_err())
+    format!("{:#}", pewp::prepare(json, &Env::default()).unwrap_err())
 }
 
 #[test]

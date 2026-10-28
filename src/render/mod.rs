@@ -1,5 +1,6 @@
 //! 各格式的渲染器。
 
+mod common;
 pub mod docx;
 pub mod html;
 pub mod pdf;
