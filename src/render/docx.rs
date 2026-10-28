@@ -88,6 +88,7 @@ pub fn render(doc: &Doc, tree: &Node, opts: &Options) -> anyhow::Result<Output> 
         next_num: 2,
         blocks: Vec::new(),
         numberings: Vec::new(),
+        repeat_heads: Vec::new(),
     };
     r.node(tree);
     for (abs, num) in std::mem::take(&mut r.numberings) {
@@ -99,12 +100,52 @@ pub fn render(doc: &Doc, tree: &Node, opts: &Options) -> anyhow::Result<Output> 
             Block::T(t) => docx.add_table(t),
         };
     }
+    let mut xml = docx.build();
+    xml.document = mark_table_headers(&xml.document, &r.repeat_heads);
     let mut buf = std::io::Cursor::new(Vec::new());
-    docx.build().pack(&mut buf)?;
+    xml.pack(&mut buf)?;
     Ok(Output {
         bytes: buf.into_inner(),
         warnings: r.warn.list,
     })
+}
+
+/// 给要重复的表头行补上 `<w:tblHeader />`：Word 跨页时会在新页顶上再画一遍这一行。
+/// `heads` 和文档里 `<w:tbl>` 出现的顺序一一对应（表格不嵌套）。
+fn mark_table_headers(doc: &[u8], heads: &[bool]) -> Vec<u8> {
+    if !heads.contains(&true) {
+        return doc.to_vec();
+    }
+    let Ok(xml) = std::str::from_utf8(doc) else {
+        return doc.to_vec();
+    };
+    let mut out = String::with_capacity(xml.len() + heads.len() * 32);
+    let mut rest = xml;
+    for &repeat in heads {
+        let Some(t) = rest.find("<w:tbl>") else { break };
+        let Some(tr) = rest[t..].find("<w:trPr").map(|i| t + i) else {
+            break;
+        };
+        out.push_str(&rest[..tr]);
+        rest = &rest[tr..];
+        if repeat {
+            if let Some(r) = rest.strip_prefix("<w:trPr />") {
+                out.push_str("<w:trPr><w:tblHeader /></w:trPr>");
+                rest = r;
+            } else if let Some(r) = rest.strip_prefix("<w:trPr>") {
+                out.push_str("<w:trPr><w:tblHeader />");
+                rest = r;
+            }
+        }
+        // 跳过这张表，下一轮找下一张
+        let end = rest
+            .find("</w:tbl>")
+            .map_or(rest.len(), |i| i + "</w:tbl>".len());
+        out.push_str(&rest[..end]);
+        rest = &rest[end..];
+    }
+    out.push_str(rest);
+    out.into_bytes()
 }
 
 // 段落和表格都只活到 render 结束，不值得为大小差异装箱
@@ -121,6 +162,8 @@ struct Ctx<'a> {
     next_num: usize,
     blocks: Vec<Block>,
     numberings: Vec<(AbstractNumbering, Numbering)>,
+    /// 按出现顺序，每张表的表头要不要跨页重复
+    repeat_heads: Vec<bool>,
 }
 
 impl Ctx<'_> {
@@ -434,9 +477,9 @@ impl Ctx<'_> {
             }
             rows.push(row);
         }
-        if s.repeat_header == Some(true) && g.has_header {
-            // docx-rs 没有 w:tblHeader，默认值就不提示了
-        }
+        // docx-rs 没有 w:tblHeader，生成 XML 后再补（见 mark_table_headers）
+        self.repeat_heads
+            .push(g.has_header && s.repeat_header.unwrap_or(true));
         let t = Table::without_borders(rows)
             .set_grid(grid)
             .layout(match s.table_layout {

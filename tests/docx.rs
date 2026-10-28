@@ -49,3 +49,20 @@ fn styles_example_borders_and_legal_numbering() {
     // 二级是 decimal，上级编号用阿拉伯数字
     assert!(has(b, "<w:isLgl"));
 }
+
+/// 表头默认跨页重复：docx-rs 不支持 w:tblHeader，渲染后补进 XML。
+#[test]
+fn table_header_repeats_and_page_break() {
+    let json = include_str!("../examples/pages.json");
+    let out = pewp::render_str(json, Format::Docx, None).unwrap();
+    assert!(has(&out.bytes, "<w:trPr><w:tblHeader /></w:trPr>"));
+    assert!(has(&out.bytes, r#"<w:br w:type="page""#));
+    // repeatHeader: false 时不写
+    let off = json.replacen(
+        r#""type": "Table","#,
+        r#""type": "Table", "style": { "repeatHeader": false },"#,
+        1,
+    );
+    let out = pewp::render_str(&off, Format::Docx, None).unwrap();
+    assert!(!has(&out.bytes, "<w:tblHeader"));
+}
