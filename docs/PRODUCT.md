@@ -12,7 +12,7 @@ pewp 把一份 JSON 文档渲染成 docx、pdf、html。JSON 里不写排版细�
 ## 第一版（v0.1）
 
 - 格式：docx、pdf、html。
-- 内置组件：Heading、Text、List、Table、Image、PageBreak、Slide，外加根组件 Document。
+- 内置组件：Heading、Text、Code、List、Table、Image、PageBreak、Slide，外加根组件 Document；行内有 InlineCode（写在 runs 里）。
 - 命令行：
   - `pewp render doc.json -o out.docx`：按输出文件的扩展名选格式。
   - `pewp check doc.json`：只校验，不出文件。

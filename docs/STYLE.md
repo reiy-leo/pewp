@@ -59,10 +59,9 @@ fontFamily:
   latin: Inter          # 西文：w:rFonts ascii + hAnsi，a:latin
   eastAsia: 思源黑体     # 中日韩：w:rFonts eastAsia，a:ea
   complex: Noto Naskh   # 阿拉伯文等：w:rFonts cs，a:cs
-  mono: JetBrains Mono  # 代码 run 用，OOXML 没有这一项，pewp 自己加
 ```
 
-写成字符串时四项都用它。Excel 一个单元格只能有一种字体：有中文内容取 `eastAsia`，否则取 `latin`。HTML、PDF 拼成回退列表：`latin, eastAsia`。
+写成字符串时三项都用它。代码用什么字体不在这里定，写在 `InlineCode` 和 `Code` 组件的样式里（见第十三节）。Excel 一个单元格只能有一种字体：有中文内容取 `eastAsia`，否则取 `latin`。HTML、PDF 拼成回退列表：`latin, eastAsia`。
 
 ## 三、段落（对应 w:pPr、a:pPr、xlsx alignment）
 
@@ -370,3 +369,48 @@ styleSets:
 ```
 
 组件自带的样式算这个组件的默认值，在继承顺序里排在第 2 步之后、第 3 步之前：样式集、顶层 styles、元素自己的 style 都能盖过它。
+
+## 十三、代码：InlineCode 和 Code
+
+代码不靠猜，也不靠字体判断，用组件明确标出来：
+
+- **InlineCode**：行内代码，写在文字的 runs 里，和普通 run 并列。取代现在 run 上的 `code: true`。
+- **Code**：整段代码，是块级组件，和 Text 并列。
+
+```yaml
+intro:
+  type: Text
+  props:
+    text:
+      - 运行
+      - { type: InlineCode, text: "pewp render doc.yaml -o out.pdf" }
+      - 生成 PDF。
+sample:
+  type: Code
+  props:
+    language: rust          # 只做标记，第一版不做语法高亮
+    code: |
+      fn main() {
+          println!("你好");   // 中文注释走 eastAsia 字体
+      }
+    lineNumbers: false
+```
+
+字体和外观写在组件样式里，跟着样式集走：
+
+```yaml
+styleSets:
+  formal:
+    components:
+      InlineCode: { fontFamily: { latin: JetBrains Mono, eastAsia: 思源黑体 }, background: "#F3F4F6" }
+      Code: { fontFamily: { latin: JetBrains Mono, eastAsia: 思源黑体 }, fontSize: 9, background: "#F6F8FA", padding: 8 }
+```
+
+| | Word | PPT | Excel | HTML | PDF |
+|---|---|---|---|---|---|
+| InlineCode | 字符样式（w:style type="character"，名为 InlineCode） | a:rPr 直接写字体 | 单元格富文本里的一段 | `<code>` | `raw(block: false)` |
+| Code | 段落样式（名为 Code），保留空格和换行（xml:space="preserve"，换行用 w:br） | 文本框 | 不支持，退成文本 | `<pre><code>` | `raw(block: true)` |
+
+- 内置默认样式给它们一套等宽字体回退：macOS 用 Menlo，Windows 用 Consolas，Linux 用 DejaVu Sans Mono。
+- InlineCode 只能放文字类 props（Text、Heading、List 项、表格格子），不能单独当元素用。
+- `language` 第一版只写进 HTML 的 `class="language-rust"`，以后再考虑高亮。
