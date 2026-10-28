@@ -193,8 +193,9 @@ Word 的列表定义在 numbering.xml：`w:abstractNum` 下每一级一个 `w:lv
 | `cellPadding` | 长度 | w:tblCellMar | 逐格 | — | td padding | inset |
 | `repeatHeader` | 布尔，默认开 | w:tblHeader | — | 打印标题行 | thead | table.header(repeat) |
 | `rowBreak` | 布尔：行内能不能跨页 | w:cantSplit | — | — | break-inside | — |
-| `stripe` | 颜色：隔行底色 | 逐行写 w:shd | 逐行写 | 逐行写 | nth-child | fill 函数 |
-| `headerStyle` | 样式名或样式对象：表头行用 | — | — | — | — | — |
+| `bandSize` | 隔几行算一条带，默认 1 | w:tblStyleRowBandSize | — | — | nth-child(an+b) | fill 函数 |
+
+表头、首行末行、奇偶行这些部位的样式见第十二节。
 
 合并单元格（w:gridSpan、w:vMerge）放在 Table 的 props 里，不算样式。
 
@@ -256,7 +257,7 @@ styles:                   # 不属于任何样式集：哪个样式集都生效
 | `Heading`、`Text`、`List`、`Table`、`Image`、`Slide` | 这类组件的全部元素 |
 | `Heading.1` … `Heading.6` | 某一级标题 |
 | `List.level1` … `List.level9`、`List.marker` | 某一级列表、编号本身 |
-| `Table.header`、`Table.cell`、`Table.oddRow`、`Table.evenRow` | 表头、单元格、隔行 |
+| `Table.header`、`Table.firstRow` … `Table.evenColumn` | 表格各部位，见第十二节 |
 | `Image.caption` | 图片说明 |
 | 自定义组件名 | 加在展开后的模板根元素上 |
 
@@ -266,12 +267,106 @@ styles:                   # 不属于任何样式集：哪个样式集都生效
 
 1. pewp 内置默认样式。
 2. 样式集的 `global`（有 `extends` 时先用父样式集的）。
+   - 自定义组件模板里自带的 style 和 parts 排在这里。
 3. 样式集的组件样式：先 `Heading`，再 `Heading.1`。
 4. 顶层 `styles` 里的组件样式：同样先 `Heading` 再 `Heading.1`。
 5. 父元素传下来的文字和段落字段（像 CSS 继承；边框、背景、盒子字段不继承）。
-6. 元素自己的 `style`：样式名、样式名数组、样式对象，后面的覆盖前面的。样式名先在当前样式集的 `styles` 里找，找不到再到顶层 `styles` 找。
+6. 元素自己的 `style` 和 `parts`：样式名、样式名数组、样式对象，后面的覆盖前面的。样式名先在当前样式集的 `styles` 里找，找不到再到顶层 `styles` 找。
 7. runs 上的文字字段。
 
 第 4 步排在第 3 步后面：样式集当底子，文档自己写的组件样式优先。
 
 docx 里第 2 到 4 步写成 Word 的样式（styles.xml 的 w:docDefaults 和 w:style），在 Word 里改「标题 1」能一起改；第 6 步写成直接格式。
+
+## 十二、部位样式和组件结构
+
+### 部位
+
+一个元素可以分成几个部位，每个部位单独设样式。表格的部位照 Word 表格样式的条件格式（w:tblStylePr）来定：
+
+| 部位 | 管什么 | Word w:tblStylePr type | Excel 表格样式 | HTML | PDF |
+|---|---|---|---|---|---|
+| `table` | 整张表 | 表格样式本身 | wholeTable | table | table |
+| `header` | 表头（columns 那一行），等于 `firstRow` | firstRow | headerRow | thead tr | table.header |
+| `firstRow` / `lastRow` | 第一行、最后一行（如合计行） | firstRow / lastRow | headerRow / totalRow | tr:first-child / :last-child | fill、stroke 函数按行号判断 |
+| `firstColumn` / `lastColumn` | 第一列、最后一列 | firstCol / lastCol | firstColumn / lastColumn | td:first-child / :last-child | 同上 |
+| `oddRow` / `evenRow` | 奇数行、偶数行（不算表头） | band1Horz / band2Horz | firstRowStripe / secondRowStripe | tbody tr:nth-child(odd / even) | 同上 |
+| `oddColumn` / `evenColumn` | 奇数列、偶数列 | band1Vert / band2Vert | firstColumnStripe / secondColumnStripe | nth-child | 同上 |
+| `topLeftCell` `topRightCell` `bottomLeftCell` `bottomRightCell` | 四个角的格子 | nwCell / neCell / swCell / seCell | — | 组合选择器 | 同上 |
+| `cell` | 每个格子 | 表格样式的 w:tcPr | — | td | table.cell |
+
+一个格子同时落在几个部位时，按 Word 的顺序叠：`table` → `cell` → 奇偶列 → 奇偶行 → 首末列 → 首末行 → 四角，后面的覆盖前面的。
+
+哪些部位生效用 Table 的 props `look` 开关，对应 Word 的 w:tblLook：
+
+```yaml
+props:
+  look: { firstRow: true, lastRow: true, firstColumn: false, bandedRows: true, bandedColumns: false }
+```
+
+docx 里这些写成一个真的 Word 表格样式（w:style type="table" 加 w:tblStylePr），在 Word 的「表格设计」里还能勾选、修改。
+
+其他组件的部位：
+
+| 组件 | 部位 |
+|---|---|
+| List | `level1` … `level9`、`marker`、`item` |
+| Image | `caption` |
+| Slide | `title`、`body` |
+| Heading | 用 `Heading.1` … 区分级别，不算部位 |
+
+### 部位样式写在哪
+
+三个地方都能写，写法一样，部位名做键：
+
+```yaml
+# ① 元素上：style 管元素本身，parts 管它的部位
+prices:
+  type: Table
+  props: { columns: [品名，单价], rows: [[苹果，"3.5"], [梨, "4.0"], [合计, "7.5"]] }
+  style: { border: 0.5pt solid #CCCCCC }
+  parts:
+    header: { background: "#1A73E8", color: "#FFFFFF", bold: true }
+    evenRow: { background: "#F5F7FA" }
+    lastRow: { bold: true, borderTop: 1pt solid #333333 }
+
+# ② 样式集或顶层 styles 里，用「组件名。部位」做键
+styles:
+  Table.header: { bold: true }
+  Table.oddRow: { background: "#FAFAFA" }
+```
+
+### 组件自带结构和样式
+
+自定义组件的模板本身就是结构：里面放一张表，表的部位样式直接写在模板元素的 `parts` 上，用这个组件的人只管传数据。
+
+```yaml
+name: PriceTable
+description: 报价表：蓝色表头、斑马纹、合计行加粗
+props:
+  rows: { type: array, required: true }
+template:
+  root: t
+  elements:
+    t:
+      type: Table
+      props: { columns: [品名，数量，单价，金额], rows: "{{rows}}", look: { lastRow: true } }
+      style: { border: 0.5pt solid #D0D7DE }
+      parts:
+        header: { background: "#1A73E8", color: "#FFFFFF", bold: true }
+        evenRow: { background: "#F5F7FA" }
+        lastRow: { bold: true, borderTop: 1pt solid #333333 }
+        lastColumn: { align: right }
+```
+
+样式集要改某个自定义组件里面的样式，用「组件名：模板元素 id」，再接部位：
+
+```yaml
+styleSets:
+  dark:
+    components:
+      PriceTable: { fontSize: 10 }              # 组件根元素
+      PriceTable:t.header: { background: "#333333" }   # 组件里表格 t 的表头
+```
+
+组件自带的样式算这个组件的默认值，在继承顺序里排在第 2 步之后、第 3 步之前：样式集、顶层 styles、元素自己的 style 都能盖过它。
