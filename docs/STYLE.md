@@ -1,6 +1,8 @@
 # 样式模型（草案）
 
-> 状态：草案，等 Rei 拍板后再改代码。现在代码里的样式只有 13 个字段，见 `src/style.rs`。
+> 状态：草案，还没改代码。现在代码里的样式只有 13 个字段，见 `src/style.rs`。
+>
+> 已定（Rei 2026-10-28）：字段平铺在 `style` 下；字段名跟 CSS 走；不做主题色。
 
 pewp 的样式以 OOXML 为准：先把 Word、PowerPoint、Excel 能配的属性列全，再归并成一套字段。HTML 和 PDF（Typst）按这套字段去对应，表达不了的就忽略并给警告。
 
@@ -9,11 +11,11 @@ pewp 的样式以 OOXML 为准：先把 Word、PowerPoint、Excel 能配的属�
 ## 一、写法约定
 
 - 字段名用 camelCase，和现在一致。
-- 按 OOXML 的层级分组：文字（rPr）、段落（pPr）、边框、背景、盒子（表格单元格、文本框）、表格、页面。分组只用来写文档；JSON 里字段平铺在 `style` 下，不用嵌套（待定，见第九节）。
+- 按 OOXML 的层级分组：文字（rPr）、段落（pPr）、边框、背景、盒子（表格单元格、文本框）、表格、页面。分组只用来写文档；JSON 里字段平铺在 `style` 下，不嵌套。
 - 长度：数字就是 pt；字符串可以带单位：`pt`、`mm`、`cm`、`in`、`px`（按 96 dpi 折算），还有两个排版单位：
   - `em`：当前字号的倍数，`"2em"` 就是首行缩进两个字。Word 里对应 `firstLineChars` 这类按字符计的属性。
   - `line`：行数，只用在段前段后，`"0.5line"` 对应 Word 的 `beforeLines`。
-- 颜色：`#RRGGBB`，以后加 `#RRGGBBAA`（只有 PPT、HTML、PDF 认透明度）。另外接受主题色名（待定）。
+- 颜色：`#RRGGBB`，以后加 `#RRGGBBAA`（只有 PPT、HTML、PDF 认透明度）。不做主题色名。
 - 同一个属性分「全部」和「单边」两种写法，单边覆盖全部：`border` 和 `borderTop`，`padding` 和 `paddingLeft`。
 
 ### 单位换算（实现时用）
@@ -70,9 +72,10 @@ fontFamily:
 | `spaceBefore` | 长度或 `"Nline"` | w:spacing before / beforeLines | a:spcBef | — | margin-top | block above |
 | `spaceAfter` | 同上 | w:spacing after / afterLines | a:spcAft | — | margin-bottom | block below |
 | `lineHeight` | 数字是倍数；长度是固定值；`{ atLeast: 长度 }` 是最小值 | w:spacing line + lineRule（auto / exact / atLeast） | a:lnSpc（spcPct / spcPts） | — | line-height | par leading（近似） |
-| `indentLeft` | 长度 | w:ind start | marL | indent（按字符数，只有整数） | padding-left | pad |
-| `indentRight` | 长度 | w:ind end | — | — | padding-right | pad |
-| `firstLineIndent` | 长度，负数是悬挂缩进 | w:ind firstLine / hanging（`em` 时用 firstLineChars） | indent | — | text-indent | first-line-indent |
+| `marginLeft` | 长度，整段左缩进 | w:ind start | marL | indent（按字符数，只有整数） | margin-left | pad |
+| `marginRight` | 长度，整段右缩进 | w:ind end | — | — | margin-right | pad |
+| `textIndent` | 长度，首行缩进 | w:ind firstLine（`em` 时用 firstLineChars） | indent（正数） | — | text-indent | first-line-indent |
+| `hangingIndent` | 长度，悬挂缩进：除首行外其他行缩进，和 `textIndent` 只能写一个 | w:ind hanging / hangingChars | indent（负数）+ marL | — | padding-left + 负 text-indent | hanging-indent |
 | `keepWithNext` | 布尔 | w:keepNext | — | — | break-after: avoid | 用 block(breakable) 近似 |
 | `keepTogether` | 布尔 | w:keepLines | — | — | break-inside: avoid | block(breakable: false) |
 | `pageBreakBefore` | 布尔 | w:pageBreakBefore | — | — | break-before | pagebreak |
@@ -142,7 +145,45 @@ background: { gradient: linear, angle: 90, stops: ["#FFFFFF", "#E8F0FE"] }
 | `textRotation` | `0` `90` `270` | w:textDirection | a:bodyPr vert | textRotation | writing-mode | rotate |
 | `radius` | 长度 | — | prstGeom roundRect | — | border-radius | radius |
 
-## 七、表格（对应 w:tblPr、w:trPr、xlsx 工作表）
+## 七、列表（对应 w:numbering、a:pPr 的 bu*、CSS list-style）
+
+Word 的列表定义在 numbering.xml：`w:abstractNum` 下每一级一个 `w:lvl`，段落用 `w:numPr` 引用。PPT 把项目符号直接写在段落的 a:pPr 上。
+
+| 字段 | 值 | Word w:lvl | PPT a:pPr | HTML | PDF |
+|---|---|---|---|---|---|
+| `listStyleType` | 无序：`disc` `circle` `square` `dash` `none`，或任意字符如 `"▸"`；有序：`decimal` `decimal-leading-zero` `lower-alpha` `upper-alpha` `lower-roman` `upper-roman` `cjk-decimal`（一、二、三） `cjk-ideographic`（甲、乙、丙） `circled-decimal`（①②③） | w:numFmt（bullet、decimal、decimalZero、lowerLetter、upperLetter、lowerRoman、upperRoman、chineseCounting、ideographTraditional、decimalEnclosedCircle） + w:lvlText | a:buChar / a:buAutoNum type（arabicPeriod、alphaLcParenR、romanUcPeriod、circleNumDbPlain、ea1ChsPeriod …） | list-style-type | list marker / enum numbering |
+| `listMarkerFormat` | 编号的模板，`%1` 是本级编号：`"%1."` `"(%1)"` `"第%1条"`；多级 `"%1.%2"` | w:lvlText | 只能从 buAutoNum 的固定几种里选，选不到就退成 `%1.` | ::marker content / counters() | enum numbering 函数 |
+| `listMarkerImage` | 图片路径，当项目符号 | w:lvlPicBulletId | a:buBlip | list-style-image | marker 里放 image |
+| `listMarkerColor` | 颜色 | w:lvl 的 w:rPr color | a:buClr | ::marker color | marker 用 text fill |
+| `listMarkerFont` | 字体名（Wingdings 这类符号字体） | w:lvl 的 w:rFonts | a:buFont | ::marker font-family | — |
+| `listMarkerSize` | 百分比数字，相对正文 | w:lvl 的 w:sz | a:buSzPct | ::marker font-size | — |
+| `listMarkerAlign` | `left` `center` `right`：编号在编号区里怎么对齐（1. 到 10. 右对齐时小数点能对齐） | w:lvlJc | — | ::marker text-align（支持差） | — |
+| `listMarkerGap` | 编号和正文之间：长度，或 `tab` `space` `none` | w:suff + 制表位 | indent 和 marL 的差 | ::marker padding / gap | body-indent |
+| `listIndent` | 每一级缩进多少（正文左边到哪） | w:ind left | marL（逐级） | padding-left | indent |
+| `listHanging` | 编号区宽度，就是悬挂缩进 | w:ind hanging | indent（负数） | 负 text-indent | 用 body-indent 近似 |
+| `listStart` | 有序列表从几开始 | w:start | buAutoNum startAt | start 属性 | enum start |
+
+多级列表：List 的 props 里 items 可以嵌套；每一级的样式写在 `List.level2`、`List.level3` 这样的组件样式键下（见第十一节），没写的级别沿用上一级，`listIndent` 每级自动累加。
+
+## 八、图片位置（对应 wp:inline / wp:anchor、p:pic 的 a:xfrm、xlsx 的 xdr anchor）
+
+| 字段 | 值 | Word | PPT | Excel | HTML | PDF |
+|---|---|---|---|---|---|---|
+| `position` | `inline`（默认，跟文字走）`float`（浮动，文字绕排）`absolute`（按页面或幻灯片定位，不占位置） | wp:inline / wp:anchor | 都是绝对定位，inline 时按版式顺排 | twoCellAnchor / oneCellAnchor | 正常流 / float / position:absolute | 正常 / place(float: true) / place |
+| `float` | `left` `right` | wp:anchor + positionH align | — | — | float | place(left / right) |
+| `wrap` | `square` `tight` `topAndBottom` `none` `behind` `inFront` | wrapSquare / wrapTight / wrapTopAndBottom / wrapNone + behindDoc | — | — | float + shape-outside（tight 近似 square） | float: true 只有 topAndBottom 和 square 近似 |
+| `wrapDistance` | 长度，或四边 `{ top, right, bottom, left }` | distT / distR / distB / distL | — | — | margin | clearance |
+| `anchorTo` | `paragraph` `margin` `page`，PPT 里是 `slide` | positionH / positionV relativeFrom（column、margin、page） | 幻灯片 | 单元格 | 包含块 | place 的参照 |
+| `x` / `y` | 长度：相对 `anchorTo` 的偏移 | wp:posOffset（EMU） | a:off（EMU） | xdr:from 列行 + 偏移 | left / top | dx / dy |
+| `horizontalAlign` | `left` `center` `right` | positionH align | 按幻灯片宽算 | — | margin auto | place(center) |
+| `verticalAlign` | `top` `middle` `bottom` | positionV align | 按幻灯片高算 | — | — | place(top / bottom) |
+| `objectFit` | `contain` `cover` `fill`：宽高都给时怎么缩放 | 按比例算 extent；cover 用 a:srcRect 裁 | a:stretch / a:srcRect | 按比例算 | object-fit | fit |
+| `rotation` | 角度 | a:xfrm rot | a:xfrm rot | — | transform | rotate |
+| `opacity` | 0–1 | a:alphaModFix | a:alphaModFix | — | opacity | — |
+
+图片的 `width`、`height` 继续放在 Image 的 props 里（它们是内容尺寸，不是样式），上面这些是样式。
+
+## 九、表格（对应 w:tblPr、w:trPr、xlsx 工作表）
 
 这些是表格组件的样式，不是每个元素都能用。
 
@@ -157,7 +198,7 @@ background: { gradient: linear, angle: 90, stops: ["#FFFFFF", "#E8F0FE"] }
 
 合并单元格（w:gridSpan、w:vMerge）放在 Table 的 props 里，不算样式。
 
-## 八、页面（`meta.page`，对应 w:sectPr）
+## 十、页面（`meta.page`，对应 w:sectPr）
 
 | 字段 | 值 | Word | PPT | Excel | HTML | PDF |
 |---|---|---|---|---|---|---|
@@ -171,17 +212,66 @@ background: { gradient: linear, angle: 90, stops: ["#FFFFFF", "#E8F0FE"] }
 
 页眉页脚、页码要单独设计，先不放进这一版。
 
-## 九、样式怎么继承
+## 十一、样式集和继承
 
-1. 内置默认样式（每个组件一份，比如 Heading 1 是 22pt 加粗）。
-2. `styles` 里以组件名为键的样式：`Heading`、`Text`、`Table`，管这类组件的全部元素；`Heading.1` 只管一级标题。
-3. 元素的 `style`：样式名、样式名数组、样式对象，后面的覆盖前面的。
-4. runs 上的文字属性，只能写第二节的字段。
+### 样式集
 
-文字属性往子元素继承（像 CSS），边框、背景、盒子属性不继承。docx 里第 2 层写成 Word 的样式（styles.xml 里的 w:style），用户在 Word 里改「标题 1」能一起改。
+样式集是一整套外观：全局样式加各个组件的样式，组件样式继承全局样式。同一份文档换一个样式集，就换一套外观。
 
-## 十、要 Rei 定的
+```yaml
+styleSet: formal          # 这份文档用哪个样式集；命令行 --style-set 可以临时换
 
-1. **字段平铺还是分组。** 推荐平铺：`style: { fontSize: 12, spaceAfter: 6, border: … }`，和 CSS 一样好写；分组写法是 `style: { run: { size: 12 }, paragraph: { after: 6 } }`，离 OOXML 更近，但每次多一层。
-2. **字段名跟谁。** 推荐跟 CSS 走（`lineHeight`、`letterSpacing`、`textRotation`），OOXML 名字只写在本文档的对照表里；另一种是直接用 OOXML 名（`jc`、`ind`、`shd`），对熟悉 Word XML 的人直观，但对 AI 和多数人难懂。
-3. **主题色。** 要不要支持 `accent1`、`text1` 这类主题色名（对应 Word/PPT 主题），换主题就换一套颜色。推荐先不做。
+styleSets:
+  formal:
+    global:               # 全局样式：所有组件都继承
+      fontFamily: { latin: Times New Roman, eastAsia: 宋体 }
+      fontSize: 12
+      lineHeight: 1.5
+    components:           # 组件样式：键是组件名，或「组件名。部位」
+      Heading: { fontFamily: { eastAsia: 黑体 }, bold: true }
+      Heading.1: { fontSize: 22, align: center }
+      Text: { textIndent: 2em }
+      Table.header: { background: "#F2F2F2", bold: true }
+      List.level2: { listStyleType: circle }
+    styles:               # 这个样式集里的命名样式，元素用 style: muted 引用
+      muted: { color: "#666666" }
+  modern:
+    extends: formal       # 在 formal 基础上改
+    global: { fontFamily: { latin: Inter, eastAsia: 思源黑体 }, fontSize: 11 }
+
+styles:                   # 不属于任何样式集：哪个样式集都生效
+  Heading.2: { color: "#1A73E8" }
+  warn: { color: "#D93025" }
+```
+
+- 样式集可以写在文档里，也可以单独成文件（YAML/JSON），像自定义组件一样从 `styles/` 目录或 `--style-set-file` 读。这样一套公司模板能给很多文档用。
+- 顶层 `styles` 不属于任何样式集。键是组件名或「组件名。部位」时是组件样式，其他是命名样式。
+- 样式集之间用 `extends` 继承，只能单继承，成环报错。
+- `global` 里只放会继承的字段（文字和段落），写边框、背景这类字段会报错，因为它们不该铺到每个组件上。
+
+组件样式的键：
+
+| 键 | 管什么 |
+|---|---|
+| `Heading`、`Text`、`List`、`Table`、`Image`、`Slide` | 这类组件的全部元素 |
+| `Heading.1` … `Heading.6` | 某一级标题 |
+| `List.level1` … `List.level9`、`List.marker` | 某一级列表、编号本身 |
+| `Table.header`、`Table.cell`、`Table.oddRow`、`Table.evenRow` | 表头、单元格、隔行 |
+| `Image.caption` | 图片说明 |
+| 自定义组件名 | 加在展开后的模板根元素上 |
+
+### 继承顺序
+
+后面的覆盖前面的：
+
+1. pewp 内置默认样式。
+2. 样式集的 `global`（有 `extends` 时先用父样式集的）。
+3. 样式集的组件样式：先 `Heading`，再 `Heading.1`。
+4. 顶层 `styles` 里的组件样式：同样先 `Heading` 再 `Heading.1`。
+5. 父元素传下来的文字和段落字段（像 CSS 继承；边框、背景、盒子字段不继承）。
+6. 元素自己的 `style`：样式名、样式名数组、样式对象，后面的覆盖前面的。样式名先在当前样式集的 `styles` 里找，找不到再到顶层 `styles` 找。
+7. runs 上的文字字段。
+
+第 4 步排在第 3 步后面：样式集当底子，文档自己写的组件样式优先。
+
+docx 里第 2 到 4 步写成 Word 的样式（styles.xml 的 w:docDefaults 和 w:style），在 Word 里改「标题 1」能一起改；第 6 步写成直接格式。
