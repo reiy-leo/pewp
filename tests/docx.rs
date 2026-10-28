@@ -32,3 +32,20 @@ fn png_image_is_embedded() {
     assert!(out.warnings.is_empty(), "{:?}", out.warnings);
     assert!(has(&out.bytes, "word/media/"));
 }
+
+/// Word 实机里看到的两个问题：合计行的上边框画了两条、二级编号出成「二.1」。
+#[test]
+fn styles_example_borders_and_legal_numbering() {
+    let out = pewp::render_str(
+        include_str!("../examples/styles.json"),
+        Format::Docx,
+        Some(Path::new("examples")),
+    )
+    .unwrap();
+    let b = &out.bytes;
+    // 格子之间的线只写在上面一格的下边，格子里的段落不带边框
+    assert!(has(b, r#"<w:bottom w:val="double""#));
+    assert!(!has(b, r#"<w:top w:val="double""#));
+    // 二级是 decimal，上级编号用阿拉伯数字
+    assert!(has(b, "<w:isLgl"));
+}

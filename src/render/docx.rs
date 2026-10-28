@@ -363,6 +363,14 @@ impl Ctx<'_> {
                 cs.merge(&part);
                 let mut ps = cs.clone();
                 ps.background = None;
+                // 部位的边框归格子画，格子里的段落不再带一份（不然 Word 会在格子里多画一条）
+                ps.border = None;
+                ps.border_top = None;
+                ps.border_right = None;
+                ps.border_bottom = None;
+                ps.border_left = None;
+                ps.border_between = None;
+                ps.border_diagonal = None;
                 ps.space_before = part.space_before;
                 ps.space_after = part.space_after;
                 let para = self.para(Paragraph::new(), &ps, &n.id);
