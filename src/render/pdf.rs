@@ -44,6 +44,9 @@ const MONO_FONTS: &[&str] = &["Menlo", "Consolas", "DejaVu Sans Mono"];
 
 pub fn render(doc: &Doc, tree: &Node, opts: &Options) -> anyhow::Result<Output> {
     let (source, files, mut warnings) = markup(doc, tree, opts);
+    if std::env::var_os("PEWP_DEBUG_TYPST").is_some() {
+        eprintln!("{source}");
+    }
     let world = PewpWorld::new(source, files);
     let warned = typst::compile::<PagedDocument>(&world);
     for w in warned.warnings.iter() {
@@ -252,7 +255,6 @@ impl Markup<'_> {
         }
         if s.background.is_some() || s.border.is_some() || s.padding.is_some() {
             args.push(format!("inset: {}pt", s.padding.unwrap_or(6.0)));
-            args.push("width: 100%".into());
             args.push("radius: 2pt".into());
         }
         if let Some(b) = s.space_before {
@@ -264,6 +266,8 @@ impl Markup<'_> {
         if args.is_empty() && sets.is_empty() {
             let _ = writeln!(self.out, "{body}");
         } else {
+            // 不写 width 时 block 会缩到内容宽，对齐就失效了
+            args.push("width: 100%".into());
             let _ = writeln!(self.out, "#block({})[\n{sets}{body}\n]", args.join(", "));
         }
     }

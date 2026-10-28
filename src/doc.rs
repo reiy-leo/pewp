@@ -23,6 +23,9 @@ pub struct Doc {
     pub meta: Meta,
     #[serde(default)]
     pub styles: BTreeMap<String, Style>,
+    /// 文档里直接写的自定义组件定义，和定义文件写法一样
+    #[serde(default)]
+    pub components: Vec<crate::custom::Def>,
     pub root: String,
     pub elements: BTreeMap<String, Element>,
 }

@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, Subcommand};
-use pewp::{components, doc, render};
+use pewp::{components, render};
 
 #[derive(Parser)]
 #[command(name = "pewp", version, about = "把一份 JSON 渲染成 docx / pdf / html")]
@@ -25,16 +25,24 @@ enum Cmd {
         /// 指定格式（html、docx、pdf），不写就看输出文件的扩展名
         #[arg(short, long)]
         format: Option<String>,
-        /// 额外的组件定义文件或目录（YAML/JSON），还没实现
+        /// 自定义组件的定义文件或目录（YAML/JSON），可写多次；文档目录下的 catalog/ 会自动读
         #[arg(long)]
         catalog: Vec<PathBuf>,
     },
     /// 只校验，不出文件
-    Check { input: PathBuf },
+    Check {
+        input: PathBuf,
+        /// 同 render 的 --catalog
+        #[arg(long)]
+        catalog: Vec<PathBuf>,
+    },
     /// 列出可用组件；加 --json 输出每个组件 props 的 JSON Schema
     Catalog {
         #[arg(long)]
         json: bool,
+        /// 一起列出这些定义文件或目录里的自定义组件
+        #[arg(long)]
+        catalog: Vec<PathBuf>,
     },
     /// 以 MCP server 方式运行（stdio），还没实现
     Mcp,
@@ -50,6 +58,15 @@ fn read_input(p: &Path) -> Result<String> {
     }
 }
 
+/// 文档所在目录；从标准输入读时没有。
+fn doc_dir(input: &Path) -> Option<PathBuf> {
+    if input == Path::new("-") {
+        None
+    } else {
+        input.parent().map(Path::to_path_buf)
+    }
+}
+
 fn main() -> Result<()> {
     match Cli::parse().cmd {
         Cmd::Render {
@@ -58,23 +75,16 @@ fn main() -> Result<()> {
             format,
             catalog,
         } => {
-            if !catalog.is_empty() {
-                bail!("--catalog 还没实现");
-            }
             let fmt = match &format {
                 Some(f) => render::Format::from_name(&f.to_ascii_lowercase())?,
                 None if output == Path::new("-") => bail!("输出到标准输出时要用 --format 指定格式"),
                 None => render::Format::from_path(&output)?,
             };
             let text = read_input(&input)?;
-            let d = doc::parse(&text)
-                .with_context(|| format!("{} 不是合法的 pewp JSON", input.display()))?;
-            let tree = d.tree()?;
-            let base_dir = if input == Path::new("-") {
-                None
-            } else {
-                input.parent().map(Path::to_path_buf)
-            };
+            let base_dir = doc_dir(&input);
+            let cat = pewp::load_catalog(base_dir.as_deref(), &catalog)?;
+            let (d, tree) = pewp::prepare(&text, &cat)
+                .with_context(|| format!("{} 不是合法的 pewp 文档", input.display()))?;
             let out = render::render(&d, &tree, fmt, &render::Options { base_dir })?;
             for w in &out.warnings {
                 eprintln!("警告：{w}");
@@ -88,16 +98,16 @@ fn main() -> Result<()> {
             }
             Ok(())
         }
-        Cmd::Check { input } => {
+        Cmd::Check { input, catalog } => {
             let text = read_input(&input)?;
-            let d = doc::parse(&text)
-                .with_context(|| format!("{} 不是合法的 pewp JSON", input.display()))?;
-            d.tree()
+            let cat = pewp::load_catalog(doc_dir(&input).as_deref(), &catalog)?;
+            let (d, _) = pewp::prepare(&text, &cat)
                 .with_context(|| format!("{} 校验没通过", input.display()))?;
-            println!("ok：{} 个元素", d.elements.len());
+            println!("ok：展开后 {} 个元素", d.elements.len());
             Ok(())
         }
-        Cmd::Catalog { json } => {
+        Cmd::Catalog { json, catalog } => {
+            let cat = pewp::load_catalog(None, &catalog)?;
             if json {
                 let mut m = serde_json::Map::new();
                 for s in components::BUILTINS {
@@ -110,6 +120,17 @@ fn main() -> Result<()> {
                         }),
                     );
                 }
+                for d in cat.defs() {
+                    m.insert(
+                        d.name.clone(),
+                        serde_json::json!({
+                            "description": d.description,
+                            "container": d.container,
+                            "custom": true,
+                            "props": d.props_schema(),
+                        }),
+                    );
+                }
                 println!("{}", serde_json::to_string_pretty(&m)?);
             } else {
                 for s in components::BUILTINS {
@@ -118,6 +139,14 @@ fn main() -> Result<()> {
                         s.name,
                         s.description,
                         if s.container { "（容器）" } else { "" }
+                    );
+                }
+                for d in cat.defs() {
+                    println!(
+                        "{:<10} {}（自定义{}）",
+                        d.name,
+                        d.description,
+                        if d.container { "，容器" } else { "" }
                     );
                 }
             }

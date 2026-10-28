@@ -25,3 +25,11 @@ fn quotes_and_markup_chars_survive() {
     let out = pewp::render_str(json, Format::Pdf, None).unwrap();
     assert!(out.bytes.starts_with(b"%PDF-"));
 }
+
+#[test]
+fn styled_blocks_span_full_width() {
+    let d = pewp::doc::parse(r##"{"root":"d","elements":{"d":{"type":"Document","children":["s"]},"s":{"type":"Text","props":{"text":"x"},"style":{"align":"right","color":"#666"}}}}"##).unwrap();
+    let tree = d.tree().unwrap();
+    let (src, _, _) = pewp::render::pdf::markup(&d, &tree, &Default::default());
+    assert!(src.contains("#block(width: 100%)"), "{src}");
+}

@@ -83,23 +83,40 @@ pdf 用 Typst 排版，有这些不同：
 
 ## 自定义组件
 
-一个组件一个文件，放在 `catalog/` 或用 `--catalog` 指定。例子：
+自定义组件把内置组件组合起来，JSON 里像内置组件一样引用。渲染前先展开成内置组件，所以三个渲染器只认内置组件。
+
+定义放在三个地方，都能用：
+
+- 文档旁边的 `catalog/` 目录，自动读取。
+- `--catalog` 指定的文件或目录，可以写多次。`render`、`check`、`catalog` 三个命令都认。
+- 文档 JSON 里的 `components` 数组，适合 AI 通过 MCP 一次传完。
+
+一个文件一个组件，YAML 或 JSON 都行：
 
 ```yaml
-name: Callout
+name: Callout                # 大写字母开头，不能和内置组件重名
 description: 带标题的提示框
+container: true              # 能放子元素；模板里要写一次 $children
 props:
-  title: { type: string }
-  body:  { type: string }
+  title: { type: inline, required: true }
+  tone:  { type: string, default: "#1a73e8" }
 template:
   root: box
   elements:
-    box:   { type: Document, children: [head, text], style: { background: "#F5F5F5", padding: 8 } }
-    head:  { type: Heading, props: { level: 3, text: "{{title}}" } }
-    text:  { type: Text, props: { text: "{{body}}" } }
+    box:  { type: Document, children: [head, $children] }
+    head: { type: Text, props: { text: "{{title}}" }, style: { bold: true, color: "{{tone}}" } }
 ```
 
-渲染前先把自定义组件展开成内置组件，所以各个渲染器只认内置组件。具体写法第一版动手时再定，以代码里的 schema 为准。
+规则：
+
+- prop 的 `type`：`string`（默认）、`number`、`integer`、`boolean`、`array`、`object`、`inline`（纯字符串或 runs 数组）、`any`。
+- 字符串正好是 `"{{title}}"` 时，整个换成 prop 的值，数组、对象也行；夹在文字里时按文字替换，比如 `"第 {{n}} 章"`。没给值的可选 prop 换成空。
+- 实例的 id 留给模板根元素，其他模板元素的 id 变成 `实例id.模板id`，比如 `tip.head`。
+- 实例的 `style` 叠在模板根元素的 `style` 后面。
+- 模板里可以用别的自定义组件，最多套 32 层，超过就当成环报错。
+- 少写必填 prop、多写没定义的 prop、类型不对，都会报错。
+
+完整例子见 `examples/custom.json` 和 `examples/catalog/`。
 
 ## 技术选型
 
@@ -108,6 +125,7 @@ template:
 | 用途 | crate | 当时最新版 |
 | --- | --- | --- |
 | docx | docx-rs | 0.4.22 |
+| YAML | serde-saphyr | 2.0 |
 | pdf | typst（当库用） | 0.15.1 |
 | xlsx（第二版） | rust_xlsxwriter | 0.101.0 |
 | pptx（第二版） | ppt-rs | 0.2.37 |
@@ -117,7 +135,7 @@ template:
 
 - PDF 走 Typst：先把文档转成 Typst 源码，再编译成 PDF。中文排版好，不用装 LibreOffice。字体要打包进二进制，或者读系统字体。
 - HTML 自己拼字符串，不引模板引擎。
-- YAML 解析：`serde_yaml` 已经停更，第一版动手时另选。
+- YAML 解析：`serde_yaml` 已经停更，改用 serde-saphyr。
 
 ## 发布
 
